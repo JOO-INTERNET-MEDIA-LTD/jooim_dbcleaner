@@ -1,128 +1,136 @@
 # Prestashop DB Cleaner
 
-**Prestashop DB Cleaner** je bezplatný modul pre PrestaShop, ktorý pomáha bezpečne zmenšiť databázu eshopu odstránením starých štatistických záznamov a voliteľným vyčistením cache tabuľky pre faceted/layered navigation.
+**Prestashop DB Cleaner** is a free module for PrestaShop that helps reduce database size by safely removing old visitor statistics records and, optionally, clearing the faceted/layered navigation cache table.
 
-Repozitár: https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner  
-Autor: JOO INTERNET MEDIA LTD  
-Modul na FTP: `jooim_dbcleaner`  
-Verzia: `1.00.00`
+Repository: https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner  
+Author: JOO INTERNET MEDIA LTD  
+Module folder name: `jooim_dbcleaner`  
+Version: `1.00.00`
 
-## Čo modul robí
+## What the module does
 
-Modul čistí najmä staré štatistiky návštevnosti, ktoré v mnohých PrestaShop obchodoch zbytočne zväčšujú databázu:
+The module mainly cleans old traffic statistics that can unnecessarily increase the size of many PrestaShop databases:
 
-- maže staré záznamy z `ps_connections`,
-- maže súvisiace záznamy z `ps_connections_source`,
-- maže súvisiace záznamy z `ps_connections_page`,
-- vie pred zmazaním uložiť jednoduché denné súhrny zdrojov návštevnosti,
-- voliteľne čistí tabuľku `ps_layered_filter_block`,
-- zobrazuje približnú veľkosť databázy,
-- zapisuje log posledných behov čistenia,
-- poskytuje CLI aj HTTP cron s tokenom.
+- deletes old records from `ps_connections`,
+- deletes related records from `ps_connections_source`,
+- deletes related records from `ps_connections_page`,
+- can save simple daily traffic source summaries before deleting old records,
+- can optionally clear the `ps_layered_filter_block` table,
+- displays the approximate database size,
+- stores logs of recent cleanup runs,
+- provides both CLI cron and HTTP cron execution protected by a token.
 
-## Čo modul nerobí
+## What the module does not do
 
-Zámerne nie sú zahrnuté rizikové alebo príliš agresívne operácie:
+The module intentionally avoids risky or overly aggressive database operations:
 
-- nespúšťa automaticky `OPTIMIZE TABLE`,
-- nemaže `ps_layered_price_index`,
-- nemení produkty, objednávky, zákazníkov ani kategórie,
-- nemonitoruje fyzický disk servera,
-- neukladá IP adresy, celé referrer URL ani user-agent reťazce do vlastných súhrnných štatistík.
+- it does not run `OPTIMIZE TABLE` automatically,
+- it does not delete `ps_layered_price_index`,
+- it does not modify products, orders, customers or categories,
+- it does not monitor the physical disk space of the server,
+- it does not store IP addresses, full referrer URLs or user-agent strings in its own aggregated statistics.
 
-## Inštalácia pre laika
+## Installation for beginners
 
-1. Stiahnite ZIP súbor modulu.
-2. V administrácii PrestaShopu otvorte **Moduly → Správca modulov**.
-3. Kliknite na **Nahrať modul**.
-4. Vyberte ZIP súbor `jooim_dbcleaner.zip`.
-5. Po nahratí kliknite na **Inštalovať**.
-6. Otvorte nastavenia modulu.
-7. Skontrolujte základné hodnoty a uložte nastavenia.
-8. Skopírujte cron príkaz alebo HTTP cron URL z nastavení modulu.
-9. Nastavte cron na hostingu.
-10. Po prvom behu skontrolujte logy modulu a veľkosť databázy.
+1. Download the module ZIP file.
+2. Open your PrestaShop administration.
+3. Go to **Modules → Module Manager**.
+4. Click **Upload a module**.
+5. Select the ZIP file, for example `jooim_dbcleaner.zip`.
+6. After upload, click **Install**.
+7. Open the module configuration page.
+8. Review the default settings and save them.
+9. Copy the generated cron command or HTTP cron URL from the module configuration.
+10. Add the cron job in your hosting control panel.
+11. After the first run, check the module logs and the reported database size.
 
-## Odporúčané prvé nastavenie
+## Recommended first configuration
 
-Pre veľkú databázu nezačínajte agresívne. Najprv modul otestujte bezpečne:
+Do not start aggressively on a large database. Test the module with conservative values first:
 
-- **Enable cleanup:** Áno
+- **Enable cleanup:** Yes
 - **Retention days for connection statistics:** 60
 - **Batch size:** 1000
 - **Maximum batches per run:** 5
-- **Clear ps_layered_filter_block:** Nie pri prvom teste, zapnúť až po overení základného čistenia
-- **Aggregate traffic source stats before deletion:** Áno, ak chcete zachovať jednoduchý prehľad zdrojov návštevnosti
+- **Clear ps_layered_filter_block:** No for the first test; enable it only after verifying the basic cleanup
+- **Aggregate traffic source stats before deletion:** Yes, if you want to keep a simple summary of traffic sources
 - **Aggregated stats retention days:** 730
 - **Stale lock timeout in seconds:** 7200
 
-Ak cron prebehne rýchlo a eshop sa nespomalí, môžete postupne zvýšiť `Batch size` na 5000 alebo 10000.
+If the cron runs quickly and the shop remains stable, you can gradually increase `Batch size` to 5000 or 10000.
 
-## Vysvetlenie nastavení
+## Configuration explained
 
 ### Enable cleanup
 
-Zapína alebo vypína samotné čistenie. Keď je vypnuté, modul môže zostať nainštalovaný, ale cron ani manuálne spustenie nebudú mazať staré štatistiky.
+Enables or disables the actual cleanup. When disabled, the module can remain installed, but cron and manual execution will not delete old statistics.
 
 ### Retention days for connection statistics
 
-Počet dní, počas ktorých sa majú zachovať pôvodné PrestaShop štatistiky návštevnosti. Napríklad hodnota `60` znamená, že modul ponechá posledných 60 dní a staršie záznamy zmaže.
+Defines how many days of original PrestaShop traffic statistics should be kept. For example, the value `60` means the module keeps the last 60 days and deletes older records.
 
 ### Batch size
 
-Počet hlavných záznamov z `ps_connections`, ktoré sa môžu spracovať v jednej dávke. Menšia hodnota je bezpečnejšia, ale čistenie trvá dlhšie. Väčšia hodnota čistí rýchlejšie, ale môže viac zaťažiť databázu.
+Defines how many main records from `ps_connections` may be processed in one batch. A smaller value is safer but slower. A larger value cleans faster but may put more load on the database.
 
 ### Maximum batches per run
 
-Koľko dávok môže modul vykonať počas jedného spustenia cronu. Približný objem práce za jeden beh je `Batch size × Maximum batches per run`.
+Defines how many batches the module may process during one cron run. The approximate amount of work per run is:
+
+```text
+Batch size × Maximum batches per run
+```
 
 ### Clear ps_layered_filter_block
 
-Voliteľne vyprázdni cache tabuľku `ps_layered_filter_block`. Toto nemaže produkty, kategórie ani cenový index. Cache si PrestaShop alebo modul faceted search následne vytvorí znova.
+Optionally clears the cache table `ps_layered_filter_block`. This does not delete products, categories or the price index. PrestaShop or the faceted search module will rebuild the cache when needed.
 
 ### Aggregate traffic source stats before deletion
 
-Pred zmazaním starých záznamov uloží denný súhrn zdrojov návštevnosti. Ide o úsporný prehľad, nie plnú analytiku.
+Before deleting old records, the module can save a compact daily summary of traffic sources. This is a lightweight overview, not a full analytics replacement.
 
 ### Aggregated stats retention days
 
-Určuje, ako dlho sa majú uchovávať denné súhrny v tabuľke modulu `ps_jooim_dbcleaner_traffic_daily`.
+Defines how long daily summaries should be kept in the module table `ps_jooim_dbcleaner_traffic_daily`.
 
 ### Stale lock timeout in seconds
 
-Ochrana proti tomu, aby naraz bežali dve čistenia. Ak predchádzajúci beh zostane zablokovaný, po tomto čase sa lock považuje za neplatný.
+Prevents two cleanup processes from running at the same time. If a previous run gets stuck, the lock is considered stale after this number of seconds.
 
 ## Cron
 
-Odporúčaný je CLI cron, pretože je stabilnejší pri väčších databázach:
+CLI cron is recommended because it is more stable for large databases:
 
 ```bash
-php /cesta/k/prestashop/modules/jooim_dbcleaner/cron.php --token=TOKEN
+php /path/to/prestashop/modules/jooim_dbcleaner/cron.php --token=TOKEN
 ```
 
-HTTP cron je len náhradná možnosť:
+HTTP cron is available as an alternative:
 
 ```text
-https://vas-eshop.sk/module/jooim_dbcleaner/cron?token=TOKEN
+https://your-shop.com/module/jooim_dbcleaner/cron?token=TOKEN
 ```
 
-Token nájdete v nastaveniach modulu. Token nezverejňujte.
+You can find the token in the module configuration. Do not publish the token and do not commit it to GitHub.
 
-## Frontend odkaz na Joobox
+## Joobox frontend attribution link
 
-Modul zobrazuje vo footeri nenápadný odkaz:
+The module displays a small attribution link in the shop footer:
 
 ```text
-Prestashop modul od joobox.eu
+Prestashop module by joobox.eu
 ```
 
-Text `Prestashop modul od` je preložiteľný. Text `joobox.eu` je pevný a odkazuje na `https://joobox.eu`.
+The text `Prestashop module by` is translatable. The fixed text `joobox.eu` links to:
 
-Modul sa najprv pokúsi použiť hook `displayFooterAfter`. Ak tento hook v danej inštalácii PrestaShopu neexistuje, použije `displayFooter`.
+```text
+https://joobox.eu
+```
 
-Ak už iný modul `jooim_` zobrazil Joobox odkaz vo footeri, tento modul ďalší duplicitný odkaz nezobrazí.
+The module uses the `displayFooter` hook for the frontend attribution link.
 
-## Licencia
+If another installed `jooim_` module has already displayed the Joobox attribution link in the footer, this module will not display a duplicate link.
 
-Použitie modulu sa riadi súborom [LICENSE](LICENSE). Modul je bezplatný, ale podmienkou používania je ponechanie viditeľného frontend odkazu na `https://joobox.eu` tak, ako ho modul štandardne zobrazuje.
+## License
 
+Use of this module is governed by the [LICENSE](LICENSE) file. The module is free to use, but the visible frontend attribution link to `https://joobox.eu` must remain active as provided by the module.

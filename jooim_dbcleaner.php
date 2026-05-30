@@ -28,7 +28,7 @@ class Jooim_dbcleaner extends Module
     {
         $this->name = 'jooim_dbcleaner';
         $this->tab = 'administration';
-        $this->version = '1.00.00';
+        $this->version = '1.00.01';
         $this->author = 'JOO INTERNET MEDIA LTD';
         $this->need_instance = 0;
         $this->bootstrap = true;

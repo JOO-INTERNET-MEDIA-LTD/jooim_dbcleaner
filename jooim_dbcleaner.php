@@ -180,7 +180,7 @@ class Jooim_dbcleaner extends Module
             }
         }
 
-        return $output.$this->renderJooboxSupportPanel().$this->renderInfoPanel().$this->renderForm().$this->renderCronPanel().$this->renderTablesPanel().$this->renderLogsPanel().$this->renderTrafficPanel();
+        return $output.$this->renderJooboxSupportPanel().$this->renderUpdateCheckPanel().$this->renderInfoPanel().$this->renderForm().$this->renderCronPanel().$this->renderTablesPanel().$this->renderLogsPanel().$this->renderTrafficPanel();
     }
 
     protected function postProcessConfiguration()
@@ -339,6 +339,131 @@ class Jooim_dbcleaner extends Module
             .'<p><a class="btn btn-primary" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">'.$this->l('Get Joobox support').'</a> '
             .'<a class="btn btn-default" href="'.htmlspecialchars($github, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">GitHub</a></p>'
             .'</div>';
+    }
+
+
+    protected function getGithubApiUrl()
+    {
+        return 'https://api.github.com/repos/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner/releases/latest';
+    }
+
+    protected function getGithubReleasesUrl()
+    {
+        return 'https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner/releases/latest';
+    }
+
+    protected function renderUpdateCheckPanel()
+    {
+        $result = $this->getLatestGithubReleaseVersion((bool) Tools::getValue('jooim_refresh_update'));
+        $latest = $result['version'] ? $result['version'] : $this->l('Unknown');
+        $statusClass = 'alert alert-info';
+        $statusText = $this->l('Unable to verify the latest version from GitHub. Check releases manually.');
+
+        if ($result['version']) {
+            if (version_compare($result['version'], $this->version, '>')) {
+                $statusClass = 'alert alert-warning';
+                $statusText = $this->l('A new module version is available.');
+            } else {
+                $statusClass = 'alert alert-success';
+                $statusText = $this->l('Module is up to date.');
+            }
+        } elseif (!empty($result['error'])) {
+            $statusText = $this->l('GitHub check failed: ').$result['error'];
+        }
+
+        $refreshUrl = AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules').'&jooim_refresh_update=1';
+
+        $html = '<div class="panel jooim-dbcleaner-update-panel">';
+        $html .= '<h3><i class="icon-refresh"></i> '.$this->l('Update check').'</h3>';
+        $html .= '<p><strong>'.$this->l('Current module version').':</strong> '.htmlspecialchars($this->version, ENT_QUOTES, 'UTF-8').'</p>';
+        $html .= '<p><strong>'.$this->l('Latest version on GitHub').':</strong> '.htmlspecialchars($latest, ENT_QUOTES, 'UTF-8').'</p>';
+        if (!empty($result['checked_at'])) {
+            $html .= '<p><strong>'.$this->l('Last checked').':</strong> '.htmlspecialchars($result['checked_at'], ENT_QUOTES, 'UTF-8').'</p>';
+        }
+        $html .= '<div class="'.$statusClass.'"><strong>'.$this->l('Update status').':</strong> '.htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8').'</div>';
+        $html .= '<p>'.$this->l('For PrestaShop installation, do not use GitHub automatic "Source code ZIP". Use only the installation ZIP file from the release assets.').'</p>';
+        $html .= '<p><a class="btn btn-primary" href="'.htmlspecialchars($this->getGithubReleasesUrl(), ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">'.$this->l('Open GitHub Releases').'</a> ';
+        $html .= '<a class="btn btn-default" href="'.htmlspecialchars($refreshUrl, ENT_QUOTES, 'UTF-8').'">'.$this->l('Refresh update status').'</a></p>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    protected function getLatestGithubReleaseVersion($forceRefresh = false)
+    {
+        $cacheVersion = 'JOOIM_DBCLEANER_GITHUB_LATEST_VERSION';
+        $cacheChecked = 'JOOIM_DBCLEANER_GITHUB_CHECKED_AT';
+        $cacheError = 'JOOIM_DBCLEANER_GITHUB_ERROR';
+        $ttl = 21600;
+        $checkedAt = Configuration::get($cacheChecked);
+
+        if (!$forceRefresh && $checkedAt && (time() - strtotime($checkedAt)) < $ttl) {
+            return array(
+                'version' => Configuration::get($cacheVersion),
+                'checked_at' => $checkedAt,
+                'error' => Configuration::get($cacheError),
+            );
+        }
+
+        $response = $this->downloadGithubJson($this->getGithubApiUrl());
+        $version = '';
+        $error = '';
+
+        if ($response['success']) {
+            $data = json_decode($response['body'], true);
+            if (is_array($data) && !empty($data['tag_name'])) {
+                $version = preg_replace('/^v/i', '', (string) $data['tag_name']);
+            } else {
+                $error = 'Invalid GitHub API response.';
+            }
+        } else {
+            $error = $response['error'];
+        }
+
+        $now = date('Y-m-d H:i:s');
+        Configuration::updateValue($cacheVersion, $version);
+        Configuration::updateValue($cacheChecked, $now);
+        Configuration::updateValue($cacheError, $error);
+
+        return array('version' => $version, 'checked_at' => $now, 'error' => $error);
+    }
+
+    protected function downloadGithubJson($url)
+    {
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'jooim-dbcleaner-update-checker');
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/vnd.github+json'));
+            $body = curl_exec($ch);
+            $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($body !== false && $httpCode >= 200 && $httpCode < 300) {
+                return array('success' => true, 'body' => $body, 'error' => '');
+            }
+
+            return array('success' => false, 'body' => '', 'error' => $error ? $error : 'HTTP '.$httpCode);
+        }
+
+        $context = stream_context_create(array(
+            'http' => array(
+                'method' => 'GET',
+                'timeout' => 6,
+                'header' => "User-Agent: jooim-dbcleaner-update-checker\r\nAccept: application/vnd.github+json\r\n",
+            ),
+        ));
+        $body = @file_get_contents($url, false, $context);
+
+        if ($body === false) {
+            return array('success' => false, 'body' => '', 'error' => 'Unable to download GitHub release information.');
+        }
+
+        return array('success' => true, 'body' => $body, 'error' => '');
     }
 
     protected function renderInfoPanel()

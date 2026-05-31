@@ -171,3 +171,28 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_1d1840de10b4c570a590a590a
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_712bd563f4ec14a3e9f63cd426a8f515'] = 'Last checked';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_88183b946cc5f0e8c96b2e66e1c74a7e'] = 'Unknown';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_71e0aea296c265512a5bc54716b4381e'] = 'GitHub check failed: ';
+
+// Filters
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_134353eb582d3f9bfd506fffd830814d'] = 'All types';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_6e7fe9233bd59f1554282e58256a3e07'] = 'All domains';
+
+
+// Version 1.00.02 tabs, multishop and statistics
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_f4f70727dc34561dfde1a3c529b6205c'] = 'Settings';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_addb9e70976c2f94b8ccfc3736a31888'] = 'Important information';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_c33e404a441c6ba9648f88af3c68a1ca'] = 'Statistics';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_50d9d560b468ec07f8b4fe721fcae24e'] = 'Date from';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_bad39a65b5302bb8628585aae59da36b'] = 'Date to';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_3995e76cfbc85dea7472c8a1aa627244'] = 'Rows per page';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d7778d0c64b6ba21494c97f77a66885a'] = 'Filter';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_54df9536f2bc89e18bec27b0d34ab42e'] = 'Download CSV';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_ac48e09c0c75c62cae4f22f28fe0b6ce'] = 'Multishop scope';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_6c79cff1cbeebe657a8998d84541aedc'] = 'Current shop';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_9ed51b577d642903bb209a6a73de4a92'] = 'All shops / global database';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_ccf107a5d46c6501c9f2f4345400dc2e'] = 'Shop ID';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_7442e29d7d53e549b78d93c46b8cdcfc'] = 'Orders';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_43f084e67bd34d931e27e36fe2d4c57c'] = 'Orders by country, source type and domain';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d47588cc7fbf16821828a344b4366453'] = 'This table shows how many orders were attributed to a country, source type and domain for each day. Attribution is created from the visitor source data available before cleanup.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_59716c97497eb9694541f7c3d37b1a4d'] = 'Country';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_26613e09abed21b0b9770b4f08c91f69'] = 'Country ISO';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_3c17230c24239adc62643be5255f5f53'] = 'No order source statistics yet.';

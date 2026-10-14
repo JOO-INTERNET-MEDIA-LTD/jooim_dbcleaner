@@ -17,7 +17,10 @@ class JooimDbcleanerTools
                 WHERE table_schema = "'.pSQL(_DB_NAME_).'"
                   AND table_name = "'.pSQL(_DB_PREFIX_.$tableName).'"';
 
-        $rows = Db::getInstance()->executeS($sql);
+        $rows = Db::getInstance()->executeS($sql, true, false);
+        if (!is_array($rows)) {
+            throw new RuntimeException('Unable to inspect the database schema.');
+        }
         return isset($rows[0]['found_table']) && (int) $rows[0]['found_table'] > 0;
     }
 
@@ -31,7 +34,10 @@ class JooimDbcleanerTools
                   AND table_name = "'.pSQL(_DB_PREFIX_.$tableName).'"
                   AND column_name = "'.pSQL($columnName).'"';
 
-        $rows = Db::getInstance()->executeS($sql);
+        $rows = Db::getInstance()->executeS($sql, true, false);
+        if (!is_array($rows)) {
+            throw new RuntimeException('Unable to inspect the database schema.');
+        }
         return isset($rows[0]['found_column']) && (int) $rows[0]['found_column'] > 0;
     }
 
@@ -42,7 +48,7 @@ class JooimDbcleanerTools
         $sql = 'SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS database_size_mb
                 FROM information_schema.tables
                 WHERE table_schema = "'.pSQL(_DB_NAME_).'"';
-        $rows = Db::getInstance()->executeS($sql);
+        $rows = Db::getInstance()->executeS($sql, true, false);
         if (!isset($rows[0]['database_size_mb']) || $rows[0]['database_size_mb'] === null) {
             return null;
         }
@@ -61,7 +67,7 @@ class JooimDbcleanerTools
                 WHERE table_schema = "'.pSQL(_DB_NAME_).'"
                 ORDER BY data_length + index_length DESC
                 LIMIT '.(int) $limit;
-        return Db::getInstance()->executeS($sql);
+        return Db::getInstance()->executeS($sql, true, false);
     }
 
     public static function normalizeDomain($url)

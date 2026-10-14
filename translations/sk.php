@@ -194,3 +194,26 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d47588cc7fbf16821828a344b
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_59716c97497eb9694541f7c3d37b1a4d'] = 'Krajina';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_26613e09abed21b0b9770b4f08c91f69'] = 'ISO krajiny';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_3c17230c24239adc62643be5255f5f53'] = 'Zatiaľ nie sú dostupné štatistiky zdrojov objednávok.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_20b8119ff3b0f6afd2966503655746e4'] = 'Bezpečne čistí staré a osirelé návštevnostné štatistiky PrestaShopu v obmedzených dávkach a zobrazuje využitie databázy.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_795ac1ca322bbe8c4802893564d3d1a9'] = 'Počet dní uchovania connections_source';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_9b880cd2a0d4ee027b089c7822e5b969'] = 'Riadky sa odstraňujú priamo podľa connections_source.date_add, nezávisle od ps_connections.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_1d19ea12d1bff5369d0a836f40b3f83f'] = 'Toto je rozhodujúca ochrana proti nekontrolovanému rastu ps_connections_source. Hodnota 7 ponechá jeden týždeň surových zdrojových riadkov. Samostatný modul jooim_analytics ukladá kompaktné denné štatistiky, preto sa dlhé uchovávanie surových dát neodporúča.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_1c57b832e371d17387c223eaf25ec887'] = 'Maximálny čas jedného spustenia (sekundy)';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_149e6e256682e97b8f97e6a7adec6038'] = 'Čistenie bezpečne zastaví a pokračuje pri ďalšom spustení cronu.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e04712c249f618999e1b2cad50064e6c'] = 'Odporúčaná hodnota: 120 sekúnd. Zabráni tomu, aby jedno spustenie cronu príliš dlho zaťažovalo databázu veľkého obchodu.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_4fa1c72cb2716932cd06389e8ec48375'] = 'Odstraňovať osirelé štatistické riadky';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_0db9576f083c32046b7007df2dcf71fd'] = 'Odstraňuje riadky z connections_source a connections_page, ku ktorým už neexistuje nadradené pripojenie.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_55f850365e6f64660bf38ede3ad4884c'] = 'Toto čistenie je bezpečné, pretože PrestaShop nemôže osirelé riadky použiť bez nadradeného riadka v ps_connections.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e016936edc4742061bc1b9b7a2fdd6da'] = 'Osirelé zdroje';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_6f328080c66fd99b7d9a84a637d63853'] = 'Osirelé stránky';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_6ded8ac920a0d257963df9cd076660fa'] = 'Počet dní uchovania záznamov pripojení';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_bf217dc95d4d417ddf037dd2bcc0de84'] = 'Odstránia sa staré pripojenia a ich súvisiace riadky stránok a zdrojov. connections_source má nižšie aj samostatné priame uchovávanie.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_47982c42b385d1b2f00fd4e539e18cc7'] = 'Zadajte, ako dlho sa majú uchovávať nadradené riadky v ps_connections. Súvisiace riadky ps_connections_page a ps_connections_source sa odstránia pred nadradeným riadkom. Priame uchovávanie zdrojov sa nastavuje samostatne nižšie.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_ddfa93d9b74154799139317ff313edc9'] = 'Modul PrestaShop statsdata je aktívny. Môže znova vytvárať veľké tabuľky surových návštevnostných štatistík. Pri používaní jooim_analytics ho ponechajte vypnutý.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_67d8a756dca671c9065ac30569c2ac35'] = 'Modul PrestaShop statsdata je vypnutý.';
+
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_b8bde77cc207ac21a53b88a03f708b84'] = 'Odstránení návštevníci';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_06f2034f507e3c8c702617e8506091e9'] = 'Nepodarilo sa aktualizovať databázovú schému modulu.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_22dbf5b1119553f5763249116b6b9ca1'] = 'Bezpečne čistí staré návštevnostné štatistiky a anonymných návštevníkov bez väzieb v obmedzených dávkach a zobrazuje využitie databázy.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_92028e0ea6641323deb78e16c2a28b8f'] = 'Odstránia sa staré spojenia a súvisiace štatistiky. Odstránia sa aj anonymní návštevníci bez ďalších spojení, košíkov alebo väzby na zákazníka. Zdroje majú nižšie samostatné uchovávanie.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e825e64103a3aed1d72166aba952e2a7'] = 'Časový limit sa kontroluje medzi SQL operáciami. Práve bežiaci dotaz môže tento limit prekročiť.';

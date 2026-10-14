@@ -12,25 +12,32 @@ class JooimDbcleanerCleaner
 {
     protected $db;
     protected $module;
+    protected $startedAt = 0.0;
+    protected $maxRuntimeSeconds = 120;
+    protected $mysqlLockName = '';
+    protected $mysqlLockAcquired = false;
 
     public function __construct(Module $module)
     {
         $this->db = Db::getInstance();
         $this->module = $module;
+        $this->mysqlLockName = 'jooim_dbcleaner_'.sha1(_DB_NAME_._DB_PREFIX_);
     }
 
     public function run($runType = 'cron')
     {
-        $started = microtime(true);
-        if (method_exists($this->module, 'ensureDatabaseSchema')) {
-            $this->module->ensureDatabaseSchema();
-        }
+        $this->startedAt = microtime(true);
+        $this->maxRuntimeSeconds = max(15, (int) Configuration::get('JOOIM_DBCLEANER_MAX_RUNTIME'));
+
         $result = array(
             'status' => 'success',
             'message' => '',
+            'deleted_guests' => 0,
             'deleted_connections' => 0,
             'deleted_connections_source' => 0,
             'deleted_connections_page' => 0,
+            'deleted_orphan_connections_source' => 0,
+            'deleted_orphan_connections_page' => 0,
             'layered_filter_cleared' => 0,
             'database_size_mb_before' => JooimDbcleanerTools::getDatabaseSizeMb(),
             'database_size_mb_after' => null,
@@ -40,74 +47,167 @@ class JooimDbcleanerCleaner
         if (!Configuration::get('JOOIM_DBCLEANER_ENABLE')) {
             $result['status'] = 'skipped';
             $result['message'] = 'Cleanup is disabled.';
-            $this->finishLog($runType, $result, $started);
-            return $result;
-        }
-
-        if (!$this->acquireLock()) {
-            $result['status'] = 'skipped';
-            $result['message'] = 'Another cleanup process is already running.';
-            $this->finishLog($runType, $result, $started);
+            $this->finishLog($runType, $result);
             return $result;
         }
 
         try {
-            $retentionDays = max(1, (int) Configuration::get('JOOIM_DBCLEANER_RETENTION_DAYS'));
-            $batchSize = max(100, (int) Configuration::get('JOOIM_DBCLEANER_BATCH_SIZE'));
-            $maxBatches = max(1, (int) Configuration::get('JOOIM_DBCLEANER_MAX_BATCHES'));
+            if (!$this->acquireLock()) {
+                $result['status'] = 'skipped';
+                $result['message'] = 'Another cleanup process is already running.';
+                $this->finishLog($runType, $result);
+                return $result;
+            }
+            if (method_exists($this->module, 'ensureDatabaseSchema') && !$this->module->ensureDatabaseSchema()) {
+                throw new RuntimeException('Unable to update the module database schema.');
+            }
+            $this->maxRuntimeSeconds = max(15, (int) Configuration::get('JOOIM_DBCLEANER_MAX_RUNTIME'));
+            $connectionsRetention = max(1, (int) Configuration::get('JOOIM_DBCLEANER_RETENTION_DAYS'));
+            $sourceRetention = max(1, (int) Configuration::get('JOOIM_DBCLEANER_SOURCE_RETENTION_DAYS'));
+            $batchSize = max(100, min(100000, (int) Configuration::get('JOOIM_DBCLEANER_BATCH_SIZE')));
+            $maxBatches = max(1, min(1000, (int) Configuration::get('JOOIM_DBCLEANER_MAX_BATCHES')));
 
-            if (Configuration::get('JOOIM_DBCLEANER_AGGREGATE_STATS')) {
-                $this->aggregateStatsForOldConnections($retentionDays, $batchSize, $maxBatches);
+            // Clean connections_source by its own date_add. This is intentionally
+            // independent of ps_connections and remains effective even when source
+            // rows are orphaned or statsdata produced far more source rows than visits.
+            $result['deleted_connections_source'] += $this->deleteOldConnectionSources(
+                $sourceRetention,
+                $batchSize,
+                $maxBatches
+            );
+
+            if (!$this->runtimeExceeded()) {
+                $deleteResult = $this->deleteOldConnectionStats(
+                    $connectionsRetention,
+                    $batchSize,
+                    $maxBatches
+                );
+                $result['deleted_guests'] += $deleteResult['deleted_guests'];
+                $result['deleted_connections'] += $deleteResult['deleted_connections'];
+                $result['deleted_connections_source'] += $deleteResult['deleted_connections_source'];
+                $result['deleted_connections_page'] += $deleteResult['deleted_connections_page'];
             }
 
-            $deleteResult = $this->deleteOldConnectionStats($retentionDays, $batchSize, $maxBatches);
-            $result['deleted_connections'] = $deleteResult['deleted_connections'];
-            $result['deleted_connections_source'] = $deleteResult['deleted_connections_source'];
-            $result['deleted_connections_page'] = $deleteResult['deleted_connections_page'];
+            if (Configuration::get('JOOIM_DBCLEANER_CLEAN_ORPHANS') && !$this->runtimeExceeded()) {
+                $result['deleted_orphan_connections_source'] = $this->deleteOrphanConnectionSources(
+                    $batchSize,
+                    $maxBatches
+                );
+                $result['deleted_connections_source'] += $result['deleted_orphan_connections_source'];
+            }
 
-            if (Configuration::get('JOOIM_DBCLEANER_CLEAR_LAYERED_FILTER') && JooimDbcleanerTools::tableExists('layered_filter_block')) {
-                $this->db->execute('TRUNCATE TABLE `'._DB_PREFIX_.'layered_filter_block`');
+            if (Configuration::get('JOOIM_DBCLEANER_CLEAN_ORPHANS') && !$this->runtimeExceeded()) {
+                $result['deleted_orphan_connections_page'] = $this->deleteOrphanConnectionPages(
+                    $batchSize,
+                    $maxBatches
+                );
+                $result['deleted_connections_page'] += $result['deleted_orphan_connections_page'];
+            }
+
+            if (Configuration::get('JOOIM_DBCLEANER_CLEAR_LAYERED_FILTER')
+                && JooimDbcleanerTools::tableExists('layered_filter_block')
+                && !$this->runtimeExceeded()
+            ) {
+                if (!$this->db->execute('TRUNCATE TABLE `'._DB_PREFIX_.'layered_filter_block`')) {
+                    throw new RuntimeException('Unable to truncate layered_filter_block: '.$this->db->getMsgError());
+                }
                 $result['layered_filter_cleared'] = 1;
             }
 
-            $this->purgeOldAggregates();
-        } catch (Exception $e) {
+            $this->purgeOldModuleData();
+
+            if ($this->runtimeExceeded()) {
+                $result['status'] = 'partial';
+                $result['message'] = 'The configured maximum runtime was reached. Remaining rows will be processed by the next cron run.';
+            } elseif ($result['message'] === '') {
+                $result['message'] = 'Cleanup completed.';
+            }
+        } catch (Throwable $e) {
             $result['status'] = 'error';
-            $result['message'] = $e->getMessage();
+            $result['message'] = 'Cleanup failed. Check database permissions and the module schema.';
+        } finally {
+            try {
+                $this->releaseLock();
+            } catch (Throwable $e) {
+                $result['status'] = 'error';
+                $result['message'] = 'Unable to release the cleanup lock. It will be released when the database connection closes.';
+            }
         }
 
-        $this->releaseLock();
-        $this->finishLog($runType, $result, $started);
+        $this->finishLog($runType, $result);
         return $result;
     }
 
-    protected function finishLog($runType, array &$result, $started)
+    protected function finishLog($runType, array &$result)
     {
         $result['database_size_mb_after'] = JooimDbcleanerTools::getDatabaseSizeMb();
-        $result['runtime_seconds'] = round(microtime(true) - $started, 3);
-        $this->insertLog($runType, $result);
+        $result['runtime_seconds'] = round(microtime(true) - $this->startedAt, 3);
+        try {
+            $this->insertLog($runType, $result);
+        } catch (Throwable $e) {
+            $result['status'] = 'error';
+            $result['message'] = 'Unable to save the cleanup log. Check the module database schema.';
+        }
         Configuration::updateValue('JOOIM_DBCLEANER_LAST_RUN', date('Y-m-d H:i:s'));
         Configuration::updateValue('JOOIM_DBCLEANER_LAST_STATUS', $result['status']);
         Configuration::updateValue('JOOIM_DBCLEANER_LAST_MESSAGE', Tools::substr($result['message'], 0, 255));
     }
 
+    protected function runtimeExceeded()
+    {
+        return (microtime(true) - $this->startedAt) >= $this->maxRuntimeSeconds;
+    }
+
     protected function acquireLock()
     {
-        $timeout = max(300, (int) Configuration::get('JOOIM_DBCLEANER_STALE_LOCK_TIMEOUT'));
-        $runningSince = (int) Configuration::get('JOOIM_DBCLEANER_RUNNING_SINCE');
-        $now = time();
-
-        if ($runningSince > 0 && ($now - $runningSince) < $timeout) {
-            return false;
+        // Fail closed when named locks are unavailable; a configuration flag is not atomic.
+        $rows = $this->db->executeS('SELECT GET_LOCK("'.pSQL($this->mysqlLockName).'", 0) AS acquired_lock', true, false);
+        if (!is_array($rows) || !isset($rows[0]['acquired_lock'])) {
+            throw new RuntimeException('An atomic MySQL cleanup lock is unavailable. Cleanup was not started.');
         }
-
-        Configuration::updateValue('JOOIM_DBCLEANER_RUNNING_SINCE', (string) $now);
-        return true;
+        $this->mysqlLockAcquired = (int) $rows[0]['acquired_lock'] === 1;
+        return $this->mysqlLockAcquired;
     }
 
     protected function releaseLock()
     {
-        Configuration::updateValue('JOOIM_DBCLEANER_RUNNING_SINCE', '0');
+        if ($this->mysqlLockAcquired) {
+            $rows = $this->db->executeS('SELECT RELEASE_LOCK("'.pSQL($this->mysqlLockName).'") AS released_lock', true, false);
+            $this->mysqlLockAcquired = false;
+            if (!isset($rows[0]['released_lock']) || (int) $rows[0]['released_lock'] !== 1) {
+                throw new RuntimeException('Unable to release the cleanup lock.');
+            }
+        }
+    }
+
+    protected function deleteOldConnectionSources($retentionDays, $batchSize, $maxBatches)
+    {
+        if (!JooimDbcleanerTools::tableExists('connections_source')
+            || !JooimDbcleanerTools::columnExists('connections_source', 'date_add')
+        ) {
+            return 0;
+        }
+
+        $deleted = 0;
+        for ($batch = 0; $batch < $maxBatches && !$this->runtimeExceeded(); $batch++) {
+            // The core table has an index on date_add. A bounded DELETE ordered by
+            // that column avoids scanning or materialising a huge ID list.
+            $sql = 'DELETE FROM `'._DB_PREFIX_.'connections_source`
+                    WHERE `date_add` < DATE_SUB(NOW(), INTERVAL '.(int) $retentionDays.' DAY)
+                    ORDER BY `date_add` ASC
+                    LIMIT '.(int) $batchSize;
+            if (!$this->db->execute($sql)) {
+                throw new RuntimeException('Delete failed for '._DB_PREFIX_.'connections_source: '.$this->db->getMsgError());
+            }
+
+            $affected = (int) $this->db->Affected_Rows();
+            $deleted += $affected;
+            if ($affected < $batchSize) {
+                break;
+            }
+        }
+
+        return $deleted;
     }
 
     protected function getOldConnectionIds($retentionDays, $batchSize)
@@ -116,320 +216,229 @@ class JooimDbcleanerCleaner
             return array();
         }
 
-        $sql = 'SELECT id_connections
-                FROM `'._DB_PREFIX_.'connections`
-                WHERE date_add < DATE_SUB(NOW(), INTERVAL '.(int) $retentionDays.' DAY)
-                ORDER BY id_connections ASC
-                LIMIT '.(int) $batchSize;
-        $rows = $this->db->executeS($sql);
-        $ids = array();
-        foreach ($rows as $row) {
-            $ids[] = (int) $row['id_connections'];
-        }
-        return $ids;
+        $rows = $this->db->executeS(
+            'SELECT `id_connections`
+             FROM `'._DB_PREFIX_.'connections`
+             WHERE `date_add` < DATE_SUB(NOW(), INTERVAL '.(int) $retentionDays.' DAY)
+             ORDER BY `date_add` ASC, `id_connections` ASC
+             LIMIT '.(int) $batchSize, true, false
+        );
+
+        return $this->extractIds($rows, 'id_connections');
     }
 
     protected function deleteOldConnectionStats($retentionDays, $batchSize, $maxBatches)
     {
         $totals = array(
+            'deleted_guests' => 0,
             'deleted_connections' => 0,
             'deleted_connections_source' => 0,
             'deleted_connections_page' => 0,
         );
 
-        for ($batch = 0; $batch < $maxBatches; $batch++) {
+        for ($batch = 0; $batch < $maxBatches && !$this->runtimeExceeded(); $batch++) {
             $ids = $this->getOldConnectionIds($retentionDays, $batchSize);
             if (!$ids) {
                 break;
             }
 
-            $idsSql = implode(',', array_map('intval', $ids));
+            $guestRows = $this->db->executeS('SELECT DISTINCT `id_guest` FROM `'._DB_PREFIX_.'connections`
+                WHERE `id_connections` IN ('.implode(',', array_map('intval', $ids)).')', true, false);
+            $guestIds = $this->extractIds($guestRows, 'id_guest');
 
             if (JooimDbcleanerTools::tableExists('connections_page')) {
-                $this->db->execute('DELETE FROM `'._DB_PREFIX_.'connections_page` WHERE id_connections IN ('.$idsSql.')');
-                $totals['deleted_connections_page'] += $this->db->Affected_Rows();
+                $totals['deleted_connections_page'] += $this->deleteChildren('connections_page', $ids, $batchSize);
             }
 
             if (JooimDbcleanerTools::tableExists('connections_source')) {
-                $this->db->execute('DELETE FROM `'._DB_PREFIX_.'connections_source` WHERE id_connections IN ('.$idsSql.')');
-                $totals['deleted_connections_source'] += $this->db->Affected_Rows();
+                $totals['deleted_connections_source'] += $this->deleteChildren('connections_source', $ids, $batchSize);
             }
 
-            $this->db->execute('DELETE FROM `'._DB_PREFIX_.'connections` WHERE id_connections IN ('.$idsSql.')');
+            if ($this->runtimeExceeded()) {
+                break;
+            }
+            $this->executeDeleteByIds('connections', 'id_connections', $ids);
             $totals['deleted_connections'] += $this->db->Affected_Rows();
+            if (!$this->runtimeExceeded()) {
+                $totals['deleted_guests'] += $this->deleteOldGuests($guestIds, $batchSize);
+            }
         }
 
         return $totals;
     }
 
-    protected function aggregateStatsForOldConnections($retentionDays, $batchSize, $maxBatches)
+    protected function deleteOrphanConnectionSources($batchSize, $maxBatches)
     {
-        if (!JooimDbcleanerTools::tableExists('connections')) {
-            return;
+        if (!JooimDbcleanerTools::tableExists('connections_source')
+            || !JooimDbcleanerTools::tableExists('connections')
+        ) {
+            return 0;
         }
 
-        $limit = $batchSize * $maxBatches;
-        $hasSource = JooimDbcleanerTools::tableExists('connections_source');
-        $hasPage = JooimDbcleanerTools::tableExists('connections_page');
-        $hasShop = JooimDbcleanerTools::columnExists('connections', 'id_shop');
-        $hasGuest = JooimDbcleanerTools::columnExists('connections', 'id_guest');
-
-        $sourceSelect = $hasSource ? 'cs.http_referer, cs.request_uri' : 'c.http_referer, "" AS request_uri';
-        $sourceJoin = $hasSource ? 'LEFT JOIN `'._DB_PREFIX_.'connections_source` cs ON cs.id_connections = c.id_connections' : '';
-        $pageSelect = $hasPage ? '(SELECT COUNT(*) FROM `'._DB_PREFIX_.'connections_page` cp WHERE cp.id_connections = c.id_connections) AS pageviews' : '1 AS pageviews';
-        $shopSelect = $hasShop ? 'c.id_shop' : '0 AS id_shop';
-        $guestSelect = $hasGuest ? 'c.id_guest' : '0 AS id_guest';
-
-        $sql = 'SELECT c.id_connections, '.$shopSelect.', '.$guestSelect.', c.date_add, DATE(c.date_add) AS date_day, '.$sourceSelect.', '.$pageSelect.'
-                FROM `'._DB_PREFIX_.'connections` c
-                '.$sourceJoin.'
-                WHERE c.date_add < DATE_SUB(NOW(), INTERVAL '.(int) $retentionDays.' DAY)
-                ORDER BY c.id_connections ASC
-                LIMIT '.(int) $limit;
-
-        $rows = $this->db->executeS($sql);
-        if (!$rows) {
-            return;
-        }
-
-        $aggregates = array();
-        $sourceByConnection = array();
-        foreach ($rows as $row) {
-            $referrer = isset($row['http_referer']) ? (string) $row['http_referer'] : '';
-            $requestUri = isset($row['request_uri']) ? (string) $row['request_uri'] : '';
-            $domain = JooimDbcleanerTools::normalizeDomain($referrer);
-            $sourceType = JooimDbcleanerTools::detectSourceType($domain, $requestUri, $referrer);
-            $utmSource = JooimDbcleanerTools::extractUtm($requestUri, 'utm_source');
-            $utmMedium = JooimDbcleanerTools::extractUtm($requestUri, 'utm_medium');
-            $utmCampaign = JooimDbcleanerTools::extractUtm($requestUri, 'utm_campaign');
-            $dateDay = pSQL($row['date_day']);
-            $idShop = (int) $row['id_shop'];
-            $pageviews = max(1, (int) $row['pageviews']);
-
-            $key = implode('|', array($idShop, $dateDay, $sourceType, $domain, $utmSource, $utmMedium, $utmCampaign));
-            if (!isset($aggregates[$key])) {
-                $aggregates[$key] = array(
-                    'id_shop' => $idShop,
-                    'date_day' => $dateDay,
-                    'source_type' => $sourceType,
-                    'source_domain' => $domain,
-                    'utm_source' => $utmSource,
-                    'utm_medium' => $utmMedium,
-                    'utm_campaign' => $utmCampaign,
-                    'visits' => 0,
-                    'pageviews' => 0,
-                );
-            }
-            $aggregates[$key]['visits']++;
-            $aggregates[$key]['pageviews'] += $pageviews;
-
-            $sourceByConnection[(int) $row['id_connections']] = array(
-                'id_shop' => $idShop,
-                'source_type' => $sourceType,
-                'source_domain' => $domain,
-                'utm_source' => $utmSource,
-                'utm_medium' => $utmMedium,
-                'utm_campaign' => $utmCampaign,
+        $deleted = 0;
+        for ($batch = 0; $batch < $maxBatches && !$this->runtimeExceeded(); $batch++) {
+            $rows = $this->db->executeS(
+                'SELECT cs.`id_connections_source`
+                 FROM `'._DB_PREFIX_.'connections_source` cs
+                 LEFT JOIN `'._DB_PREFIX_.'connections` c
+                   ON c.`id_connections` = cs.`id_connections`
+                 WHERE c.`id_connections` IS NULL
+                 ORDER BY cs.`id_connections_source` ASC
+                 LIMIT '.(int) $batchSize, true, false
             );
+            $ids = $this->extractIds($rows, 'id_connections_source');
+            if (!$ids) {
+                break;
+            }
+
+            $this->executeDeleteByIds('connections_source', 'id_connections_source', $ids);
+            $deleted += $this->db->Affected_Rows();
         }
 
-        foreach ($aggregates as $data) {
-            $this->upsertTrafficDaily($data);
-        }
-
-        $this->aggregateOrdersForConnections(array_keys($sourceByConnection), $sourceByConnection);
+        return $deleted;
     }
 
-    protected function aggregateOrdersForConnections(array $connectionIds, array $sourceByConnection)
+    protected function deleteOrphanConnectionPages($batchSize, $maxBatches)
     {
-        if (!$connectionIds || !JooimDbcleanerTools::columnExists('connections', 'id_guest') || !JooimDbcleanerTools::tableExists('cart') || !JooimDbcleanerTools::tableExists('orders')) {
-            return;
+        if (!JooimDbcleanerTools::tableExists('connections_page') || !JooimDbcleanerTools::tableExists('connections')) {
+            return 0;
         }
-
-        $idsSql = implode(',', array_map('intval', $connectionIds));
-        $countryLangId = (int) Configuration::get('PS_LANG_DEFAULT');
-        $hasCartGuest = JooimDbcleanerTools::columnExists('cart', 'id_guest');
-        if (!$hasCartGuest) {
-            return;
+        $deleted = 0;
+        for ($batch = 0; $batch < $maxBatches && !$this->runtimeExceeded(); $batch++) {
+            $sql = 'DELETE FROM `'._DB_PREFIX_.'connections_page`
+                WHERE NOT EXISTS (SELECT 1 FROM `'._DB_PREFIX_.'connections` c
+                    WHERE c.`id_connections` = `'._DB_PREFIX_.'connections_page`.`id_connections`)
+                LIMIT '.(int) $batchSize;
+            if (!$this->db->execute($sql)) {
+                throw new RuntimeException('Unable to delete orphan connection pages.');
+            }
+            $affected = (int) $this->db->Affected_Rows();
+            $deleted += $affected;
+            if ($affected < $batchSize) {
+                break;
+            }
         }
+        return $deleted;
+    }
 
-        $sql = 'SELECT o.id_order, o.id_shop, o.date_add AS order_date_add, DATE(o.date_add) AS date_day,
-                       x.id_connections,
-                       IFNULL(co.iso_code, "") AS country_iso,
-                       IFNULL(cl.name, "") AS country_name
-                FROM `'._DB_PREFIX_.'orders` o
-                INNER JOIN `'._DB_PREFIX_.'cart` ca ON ca.id_cart = o.id_cart
-                INNER JOIN (
-                    SELECT o2.id_order, MAX(c2.id_connections) AS id_connections
-                    FROM `'._DB_PREFIX_.'connections` c2
-                    INNER JOIN `'._DB_PREFIX_.'cart` ca2 ON ca2.id_guest = c2.id_guest
-                    INNER JOIN `'._DB_PREFIX_.'orders` o2 ON o2.id_cart = ca2.id_cart
-                    WHERE c2.id_connections IN ('.$idsSql.')
-                      AND o2.date_add >= c2.date_add
-                    GROUP BY o2.id_order
-                ) x ON x.id_order = o.id_order
-                LEFT JOIN `'._DB_PREFIX_.'address` a ON a.id_address = o.id_address_delivery
-                LEFT JOIN `'._DB_PREFIX_.'country` co ON co.id_country = a.id_country
-                LEFT JOIN `'._DB_PREFIX_.'country_lang` cl ON cl.id_country = co.id_country AND cl.id_lang = '.(int) $countryLangId;
-
-        $rows = $this->db->executeS($sql);
-        if (!$rows) {
-            return;
+    protected function deleteOldGuests(array $ids, $batchSize)
+    {
+        // guest has no date_add: only IDs from expired connections are eligible.
+        // Preserve every customer, cart and remaining connection, across all shops.
+        if (!$ids || !JooimDbcleanerTools::tableExists('guest')
+            || !JooimDbcleanerTools::tableExists('cart')) {
+            return 0;
         }
+        $sql = 'DELETE FROM `'._DB_PREFIX_.'guest`
+            WHERE `id_guest` IN ('.implode(',', array_map('intval', $ids)).')
+              AND COALESCE(`id_customer`, 0) = 0
+              AND NOT EXISTS (SELECT 1 FROM `'._DB_PREFIX_.'cart` cart
+                  WHERE cart.`id_guest` = `'._DB_PREFIX_.'guest`.`id_guest`)
+              AND NOT EXISTS (SELECT 1 FROM `'._DB_PREFIX_.'connections` c
+                  WHERE c.`id_guest` = `'._DB_PREFIX_.'guest`.`id_guest`)
+            LIMIT '.(int) $batchSize;
+        if (!$this->db->execute($sql)) {
+            throw new RuntimeException('Unable to delete expired guests.');
+        }
+        return (int) $this->db->Affected_Rows();
+    }
 
-        $trafficOrders = array();
-        $countryOrders = array();
+    protected function extractIds($rows, $column)
+    {
+        if (!is_array($rows)) {
+            throw new RuntimeException('Unable to select cleanup records.');
+        }
+        $ids = array();
         foreach ($rows as $row) {
-            $idConnection = (int) $row['id_connections'];
-            if (!isset($sourceByConnection[$idConnection])) {
-                continue;
+            if (isset($row[$column])) {
+                $id = (int) $row[$column];
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
             }
-            $source = $sourceByConnection[$idConnection];
-            $idShop = (int) $row['id_shop'];
-            if ($idShop <= 0) {
-                $idShop = (int) $source['id_shop'];
-            }
-            $countryIso = Tools::substr((string) $row['country_iso'], 0, 8);
-            $countryName = Tools::substr((string) $row['country_name'], 0, 128);
+        }
+        return array_values(array_unique($ids));
+    }
 
-            $inserted = $this->db->insert('jooim_dbcleaner_order_attribution', array(
-                'id_order' => (int) $row['id_order'],
-                'id_shop' => $idShop,
-                'date_add' => pSQL($row['order_date_add']),
-                'country_iso' => pSQL($countryIso),
-                'country_name' => pSQL($countryName),
-                'source_type' => pSQL($source['source_type']),
-                'source_domain' => pSQL($source['source_domain']),
-            ), false, true, Db::INSERT_IGNORE);
-
-            if (!$inserted || $this->db->Affected_Rows() <= 0) {
-                continue;
+    protected function deleteChildren($table, array $ids, $batchSize)
+    {
+        $deleted = 0;
+        while (!$this->runtimeExceeded()) {
+            $sql = 'DELETE FROM `'._DB_PREFIX_.pSQL($table).'`
+                WHERE `id_connections` IN ('.implode(',', array_map('intval', $ids)).')
+                LIMIT '.(int) $batchSize;
+            if (!$this->db->execute($sql)) {
+                throw new RuntimeException('Unable to delete related statistics.');
             }
-
-            $trafficKey = implode('|', array($idShop, $row['date_day'], $source['source_type'], $source['source_domain'], $source['utm_source'], $source['utm_medium'], $source['utm_campaign']));
-            if (!isset($trafficOrders[$trafficKey])) {
-                $trafficOrders[$trafficKey] = array(
-                    'id_shop' => $idShop,
-                    'date_day' => $row['date_day'],
-                    'source_type' => $source['source_type'],
-                    'source_domain' => $source['source_domain'],
-                    'utm_source' => $source['utm_source'],
-                    'utm_medium' => $source['utm_medium'],
-                    'utm_campaign' => $source['utm_campaign'],
-                    'orders' => 0,
-                );
+            $affected = (int) $this->db->Affected_Rows();
+            $deleted += $affected;
+            if ($affected < $batchSize) {
+                break;
             }
-            $trafficOrders[$trafficKey]['orders']++;
+        }
+        return $deleted;
+    }
 
-            $countryKey = implode('|', array($idShop, $row['date_day'], $countryIso, $source['source_type'], $source['source_domain']));
-            if (!isset($countryOrders[$countryKey])) {
-                $countryOrders[$countryKey] = array(
-                    'id_shop' => $idShop,
-                    'date_day' => $row['date_day'],
-                    'country_iso' => $countryIso,
-                    'country_name' => $countryName,
-                    'source_type' => $source['source_type'],
-                    'source_domain' => $source['source_domain'],
-                    'orders' => 0,
-                );
-            }
-            $countryOrders[$countryKey]['orders']++;
+    protected function executeDeleteByIds($table, $column, array $ids)
+    {
+        if (!$ids) {
+            return true;
         }
 
-        foreach ($trafficOrders as $data) {
-            $this->upsertTrafficOrders($data);
+        $idsSql = implode(',', array_map('intval', $ids));
+        $sql = 'DELETE FROM `'._DB_PREFIX_.pSQL($table).'`
+                WHERE `'.pSQL($column).'` IN ('.$idsSql.')';
+        if (!$this->db->execute($sql)) {
+            throw new RuntimeException('Delete failed for '._DB_PREFIX_.$table.': '.$this->db->getMsgError());
         }
-        foreach ($countryOrders as $data) {
-            $this->upsertOrderSourceDaily($data);
-        }
+        return true;
     }
 
-    protected function upsertTrafficDaily(array $data)
-    {
-        $sql = 'INSERT INTO `'._DB_PREFIX_.'jooim_dbcleaner_traffic_daily`
-                (`id_shop`, `date_day`, `source_type`, `source_domain`, `utm_source`, `utm_medium`, `utm_campaign`, `visits`, `pageviews`, `orders`)
-                VALUES (
-                    '.(int) $data['id_shop'].',
-                    "'.pSQL($data['date_day']).'",
-                    "'.pSQL($data['source_type']).'",
-                    "'.pSQL($data['source_domain']).'",
-                    "'.pSQL($data['utm_source']).'",
-                    "'.pSQL($data['utm_medium']).'",
-                    "'.pSQL($data['utm_campaign']).'",
-                    '.(int) $data['visits'].',
-                    '.(int) $data['pageviews'].',
-                    0
-                )
-                ON DUPLICATE KEY UPDATE
-                    visits = visits + VALUES(visits),
-                    pageviews = pageviews + VALUES(pageviews)';
-        $this->db->execute($sql);
-    }
-
-    protected function upsertTrafficOrders(array $data)
-    {
-        $sql = 'INSERT INTO `'._DB_PREFIX_.'jooim_dbcleaner_traffic_daily`
-                (`id_shop`, `date_day`, `source_type`, `source_domain`, `utm_source`, `utm_medium`, `utm_campaign`, `visits`, `pageviews`, `orders`)
-                VALUES (
-                    '.(int) $data['id_shop'].',
-                    "'.pSQL($data['date_day']).'",
-                    "'.pSQL($data['source_type']).'",
-                    "'.pSQL($data['source_domain']).'",
-                    "'.pSQL($data['utm_source']).'",
-                    "'.pSQL($data['utm_medium']).'",
-                    "'.pSQL($data['utm_campaign']).'",
-                    0,
-                    0,
-                    '.(int) $data['orders'].'
-                )
-                ON DUPLICATE KEY UPDATE
-                    orders = orders + VALUES(orders)';
-        $this->db->execute($sql);
-    }
-
-    protected function upsertOrderSourceDaily(array $data)
-    {
-        $sql = 'INSERT INTO `'._DB_PREFIX_.'jooim_dbcleaner_order_source_daily`
-                (`id_shop`, `date_day`, `country_iso`, `country_name`, `source_type`, `source_domain`, `orders`)
-                VALUES (
-                    '.(int) $data['id_shop'].',
-                    "'.pSQL($data['date_day']).'",
-                    "'.pSQL($data['country_iso']).'",
-                    "'.pSQL($data['country_name']).'",
-                    "'.pSQL($data['source_type']).'",
-                    "'.pSQL($data['source_domain']).'",
-                    '.(int) $data['orders'].'
-                )
-                ON DUPLICATE KEY UPDATE
-                    orders = orders + VALUES(orders),
-                    country_name = VALUES(country_name)';
-        $this->db->execute($sql);
-    }
-
-    protected function purgeOldAggregates()
+    protected function purgeOldModuleData()
     {
         $days = max(30, (int) Configuration::get('JOOIM_DBCLEANER_STATS_RETENTION_DAYS'));
-        $this->db->execute('DELETE FROM `'._DB_PREFIX_.'jooim_dbcleaner_traffic_daily` WHERE date_day < DATE_SUB(CURDATE(), INTERVAL '.(int) $days.' DAY)');
-        $this->db->execute('DELETE FROM `'._DB_PREFIX_.'jooim_dbcleaner_log` WHERE date_add < DATE_SUB(NOW(), INTERVAL 365 DAY)');
-        $this->db->execute('DELETE FROM `'._DB_PREFIX_.'jooim_dbcleaner_order_source_daily` WHERE date_day < DATE_SUB(CURDATE(), INTERVAL '.(int) $days.' DAY)');
-        $this->db->execute('DELETE FROM `'._DB_PREFIX_.'jooim_dbcleaner_order_attribution` WHERE date_add < DATE_SUB(NOW(), INTERVAL '.(int) $days.' DAY)');
+        $batchSize = max(100, min(100000, (int) Configuration::get('JOOIM_DBCLEANER_BATCH_SIZE')));
+        $tables = array(
+            'jooim_dbcleaner_log' => '`date_add` < DATE_SUB(NOW(), INTERVAL 365 DAY)',
+            'jooim_dbcleaner_traffic_daily' => '`date_day` < DATE_SUB(CURDATE(), INTERVAL '.$days.' DAY)',
+            'jooim_dbcleaner_order_source_daily' => '`date_day` < DATE_SUB(CURDATE(), INTERVAL '.$days.' DAY)',
+            'jooim_dbcleaner_order_attribution' => '`date_add` < DATE_SUB(NOW(), INTERVAL '.$days.' DAY)',
+        );
+        foreach ($tables as $table => $where) {
+            if ($this->runtimeExceeded()) {
+                break;
+            }
+            if (JooimDbcleanerTools::tableExists($table)
+                && !$this->db->execute('DELETE FROM `'._DB_PREFIX_.$table.'` WHERE '.$where.' LIMIT '.$batchSize)) {
+                throw new RuntimeException('Unable to purge old module data.');
+            }
+        }
     }
 
     protected function insertLog($runType, array $result)
     {
-        $this->db->insert('jooim_dbcleaner_log', array(
+        if (!JooimDbcleanerTools::tableExists('jooim_dbcleaner_log')) {
+            return;
+        }
+
+        if (!$this->db->insert('jooim_dbcleaner_log', array(
             'id_shop' => (int) (Context::getContext()->shop ? Context::getContext()->shop->id : 0),
             'date_add' => date('Y-m-d H:i:s'),
             'run_type' => pSQL($runType),
             'status' => pSQL($result['status']),
+            'deleted_guests' => (int) $result['deleted_guests'],
             'deleted_connections' => (int) $result['deleted_connections'],
             'deleted_connections_source' => (int) $result['deleted_connections_source'],
             'deleted_connections_page' => (int) $result['deleted_connections_page'],
+            'deleted_orphan_connections_source' => (int) $result['deleted_orphan_connections_source'],
+            'deleted_orphan_connections_page' => (int) $result['deleted_orphan_connections_page'],
             'layered_filter_cleared' => (int) $result['layered_filter_cleared'],
             'database_size_mb_before' => $result['database_size_mb_before'] === null ? null : (float) $result['database_size_mb_before'],
             'database_size_mb_after' => $result['database_size_mb_after'] === null ? null : (float) $result['database_size_mb_after'],
             'runtime_seconds' => (float) $result['runtime_seconds'],
             'message' => pSQL($result['message'], true),
-        ));
+        ))) {
+            throw new RuntimeException('Unable to save the cleanup log.');
+        }
     }
 }

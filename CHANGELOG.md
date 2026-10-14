@@ -8,7 +8,7 @@
 - Added orphan-row counts to cleanup logs.
 - Disabled legacy statsdata aggregation during upgrade; analytics now belongs to `jooim_analytics`.
 - Disabled automatic `layered_filter_block` clearing during upgrade. It remains available as an explicit opt-in.
-- Removed the legacy statistics tab from the cleaner.
+- Preserve the Statistics tab for existing historical traffic and order-source data; show an empty state when legacy tables do not exist.
 - Added an administration warning when PrestaShop `statsdata` is active.
 
 - Added conservative cleanup of anonymous guests from expired connections, preserving customers, all carts and remaining connections across shops.

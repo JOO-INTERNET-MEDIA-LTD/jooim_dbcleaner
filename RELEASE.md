@@ -14,7 +14,7 @@ Suggested release title: `v1.00.03 — safer database cleanup`
 - Require an atomic MySQL lock, bypass lock-query caching and fail closed if locks are unavailable.
 - Handle failed queries and PHP errors, release locks on errors, and validate schema upgrades before recording their version.
 - Preserve Joobox support buttons, GitHub links and the update checker. Improve footer deduplication for later links and links without shared module markers.
-- Remove legacy aggregation, the statistics tab and CSV export; retain legacy tables during upgrade. Disable automatic layered-cache clearing on upgrade; it remains an explicit option.
+- Disable legacy aggregation and CSV export; retain the Statistics tab to display existing historical data, with an empty state for fresh installations. Disable automatic layered-cache clearing on upgrade; it remains an explicit option.
 
 ## Build and checks
 

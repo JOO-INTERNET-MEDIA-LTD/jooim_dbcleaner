@@ -158,7 +158,7 @@ Do not use GitHub automatic `Source code (zip)` or `Source code (tar.gz)` files 
 4. Review the new seven-day source retention and enabled orphan cleanup. Existing connection retention and batch settings remain unchanged. Legacy aggregation and automatic layered-cache clearing are disabled during upgrade.
 5. Check cron, update status and cleanup logs on a staging copy first.
 
-The legacy statistics tab and CSV export have been removed. Existing aggregate tables are preserved during upgrade, but old rows are still purged according to the previous retention setting. This module does not install `jooim_analytics` or automatically transfer data to it.
+The Statistics tab displays existing historical traffic and order-source summaries with filters and pagination. Fresh installations without legacy tables display an empty-state message. CSV export remains unavailable. Existing aggregate tables are preserved during upgrade, but old rows are still purged according to the previous retention setting. This module does not install `jooim_analytics` or automatically transfer data to it.
 
 Cleanup acts on the shared database in multishop. Guest protections check all shops; displayed logs follow the selected Back Office shop context.
 
@@ -166,7 +166,7 @@ Cleanup acts on the shared database in multishop. Guest protections check all sh
 
 This maintenance release fixes the critical cleanup gap in `ps_connections_source`. Previous versions deleted source rows only when their parent `ps_connections` row was selected. Version 1.00.03 also deletes source rows directly by `connections_source.date_add`, adds orphan cleanup, an atomic MySQL lock and a runtime deadline checked between SQL operations.
 
-For new page, product, category, CMS, manufacturer and faceted-filter statistics use the separate `jooim_analytics` module. Legacy aggregate tables remain in the database but aggregation and the statistics UI are removed.
+For new page, product, category, CMS, manufacturer and faceted-filter statistics use the separate `jooim_analytics` module. Legacy aggregate tables remain readable in the Statistics tab; new aggregation remains disabled.
 
 
 ## Development and release preparation

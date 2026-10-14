@@ -291,7 +291,7 @@ class Jooim_dbcleaner extends Module
     protected function getActiveTab()
     {
         $tab = (string) Tools::getValue('jooim_tab', 'settings');
-        $allowed = array('settings', 'info');
+        $allowed = array('settings', 'info', 'stats');
         return in_array($tab, $allowed, true) ? $tab : 'settings';
     }
 
@@ -301,6 +301,7 @@ class Jooim_dbcleaner extends Module
         $tabs = array(
             'settings' => $this->l('Settings'),
             'info' => $this->l('Important information'),
+            'stats' => $this->l('Statistics'),
         );
         $html = '<ul class="nav nav-tabs" style="margin-bottom:15px">';
         foreach ($tabs as $key => $label) {
@@ -313,6 +314,8 @@ class Jooim_dbcleaner extends Module
     protected function renderActiveTabContent()
     {
         switch ($this->getActiveTab()) {
+            case 'stats':
+                return $this->renderStatisticsPanel();
             case 'info':
                 return $this->renderInfoPanel().$this->renderTablesPanel().$this->renderLogsPanel();
             case 'settings':
@@ -1025,8 +1028,17 @@ class Jooim_dbcleaner extends Module
         return $html;
     }
 
+    protected function renderStatisticsPanel()
+    {
+        $html = '<div class="alert alert-info">'.$this->l('Historical statistics saved by earlier module versions are displayed below. Version 1.00.03 does not collect new statistics.').'</div>';
+        return $html.$this->renderTrafficPanel().$this->renderOrdersByCountryPanel();
+    }
+
     protected function renderTrafficPanel()
     {
+        if (!JooimDbcleanerTools::tableExists('jooim_dbcleaner_traffic_daily')) {
+            return '<div class="panel"><h3>'.$this->l('Aggregated traffic source stats').'</h3><p>'.$this->l('No historical statistics are available for this installation.').'</p></div>';
+        }
         $perPage = $this->getPerPage('traffic_per_page', 20);
         $page = $this->getPageNumber('traffic_page');
         $offset = ($page - 1) * $perPage;
@@ -1042,7 +1054,7 @@ class Jooim_dbcleaner extends Module
             LIMIT '.(int) $offset.', '.(int) $perPage);
         $html = '<div class="panel"><h3>'.$this->l('Aggregated traffic source stats').'</h3>';
         $html .= '<p>'.$this->l('Only aggregated data is stored. No IP addresses, full referrer URLs or user-agent strings are saved by this module.').'</p>';
-        $html .= $this->renderFilterForm('stats', 'traffic', 'traffic');
+        $html .= $this->renderFilterForm('stats', 'traffic');
         $html .= '<table class="table"><thead><tr><th>'.$this->l('Date').'</th><th>'.$this->l('Shop ID').'</th><th>'.$this->l('Type').'</th><th>'.$this->l('Domain').'</th><th>UTM Source</th><th>UTM Medium</th><th>UTM Campaign</th><th>'.$this->l('Visits').'</th><th>'.$this->l('Pageviews').'</th><th>'.$this->l('Orders').'</th></tr></thead><tbody>';
         foreach ($rows as $row) {
             $html .= '<tr><td>'.htmlspecialchars($row['date_day'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['id_shop'].'</td><td>'.htmlspecialchars($row['source_type'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['source_domain'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['utm_source'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['utm_medium'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['utm_campaign'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['visits'].'</td><td>'.(int) $row['pageviews'].'</td><td>'.(int) $row['orders'].'</td></tr>';
@@ -1056,6 +1068,9 @@ class Jooim_dbcleaner extends Module
 
     protected function renderOrdersByCountryPanel()
     {
+        if (!JooimDbcleanerTools::tableExists('jooim_dbcleaner_order_source_daily')) {
+            return '<div class="panel"><h3>'.$this->l('Orders by country, source type and domain').'</h3><p>'.$this->l('No historical statistics are available for this installation.').'</p></div>';
+        }
         $perPage = $this->getPerPage('orders_per_page', 20);
         $page = $this->getPageNumber('orders_page');
         $offset = ($page - 1) * $perPage;
@@ -1071,7 +1086,7 @@ class Jooim_dbcleaner extends Module
             LIMIT '.(int) $offset.', '.(int) $perPage);
         $html = '<div class="panel"><h3>'.$this->l('Orders by country, source type and domain').'</h3>';
         $html .= '<p>'.$this->l('This table shows how many orders were attributed to a country, source type and domain for each day. Attribution is created from the visitor source data available before cleanup.').'</p>';
-        $html .= $this->renderFilterForm('stats', 'orders', 'orders');
+        $html .= $this->renderFilterForm('stats', 'orders');
         $html .= '<table class="table"><thead><tr><th>'.$this->l('Date').'</th><th>'.$this->l('Shop ID').'</th><th>'.$this->l('Country').'</th><th>'.$this->l('Country ISO').'</th><th>'.$this->l('Type').'</th><th>'.$this->l('Domain').'</th><th>'.$this->l('Orders').'</th></tr></thead><tbody>';
         foreach ($rows as $row) {
             $html .= '<tr><td>'.htmlspecialchars($row['date_day'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['id_shop'].'</td><td>'.htmlspecialchars($row['country_name'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['country_iso'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['source_type'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['source_domain'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['orders'].'</td></tr>';

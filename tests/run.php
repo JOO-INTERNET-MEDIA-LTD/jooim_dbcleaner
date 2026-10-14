@@ -16,7 +16,11 @@ class Configuration {
         return true;
     }
 }
-class Tools { public static function substr($s, $start, $length) { return substr($s, $start, $length); } }
+class Tools {
+    public static $request = array();
+    public static function substr($s, $start, $length) { return substr($s, $start, $length); }
+    public static function getValue($key, $default = false) { return isset(self::$request[$key]) ? self::$request[$key] : $default; }
+}
 class Context {
     public $shop;
     public static function getContext() { $c = new self; $c->shop = (object) array('id' => 1); return $c; }
@@ -55,7 +59,9 @@ class Db {
         }
         if ($this->failSelect === 'throwable') { throw new TypeError('Simulated driver type error'); }
         if ($this->failSelect) { return false; }
-        check(!$cache, 'cleanup SELECT bypasses cache');
+        if (strpos($sql, 'custom_jooim_dbcleaner_') === false) {
+            check(!$cache, 'cleanup SELECT bypasses cache');
+        }
         return $this->pdo->query($this->translate($sql))->fetchAll(PDO::FETCH_ASSOC);
     }
     private function translate($sql) {
@@ -171,4 +177,45 @@ $m->ok = true; Configuration::$failKey = Jooim_dbcleaner::CONFIG_CLEAN_ORPHANS;
 check(!$m->ensureDatabaseSchema() && !Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION'), 'failed defaults never marked upgraded');
 Configuration::$failKey = '';
 check($m->ensureDatabaseSchema() && Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION') === '1.00.03', 'successful upgrade version recorded');
-echo "All cleaner and upgrade regression tests passed.\n";
+
+
+class StatisticsProbe extends Jooim_dbcleaner {
+    public $shopId = 1;
+    public function l($text) { return $text; }
+    public function activeTab() { return $this->getActiveTab(); }
+    public function tabs() { return $this->renderTabs(); }
+    public function content() { return $this->renderActiveTabContent(); }
+    protected function getAdminBaseUrl(array $extra = array()) { return 'index.php?'.http_build_query($extra); }
+    protected function getShopScopeSql($alias = '') { return $this->shopId ? ' AND '.$alias.'.id_shop = '.$this->shopId : ''; }
+    protected function renderFilterForm($tab, $prefix, $exportType = '') {
+        check($exportType === '', 'statistics do not expose inactive CSV export');
+        return '<div>filter-'.$prefix.'</div>';
+    }
+}
+$db = fixture();
+$m = (new ReflectionClass('StatisticsProbe'))->newInstanceWithoutConstructor();
+Tools::$request = array('jooim_tab' => 'stats');
+check($m->activeTab() === 'stats', 'Statistics tab accepted');
+check(strpos($m->tabs(), 'Statistics') !== false && strpos($m->tabs(), 'class="active"') !== false, 'Statistics navigation visible and active');
+$html = $m->content();
+check(substr_count($html, 'No historical statistics are available') === 2, 'fresh installation without legacy tables renders empty panels');
+check(strpos($html, 'does not collect new statistics') !== false, 'historical-only behavior explained');
+$db->pdo->exec('CREATE TABLE custom_jooim_dbcleaner_traffic_daily (date_day TEXT, id_shop INTEGER, source_type TEXT, source_domain TEXT, utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, visits INTEGER, pageviews INTEGER, orders INTEGER)');
+$db->pdo->exec('CREATE TABLE custom_jooim_dbcleaner_order_source_daily (date_day TEXT, id_shop INTEGER, country_iso TEXT, country_name TEXT, source_type TEXT, source_domain TEXT, orders INTEGER)');
+for ($i = 0; $i < 25; $i++) {
+    $db->pdo->exec("INSERT INTO custom_jooim_dbcleaner_traffic_daily VALUES ('2026-10-01',1,'organic_search','example.com','','','',3,4,1)");
+}
+$db->pdo->exec("INSERT INTO custom_jooim_dbcleaner_traffic_daily VALUES ('2026-10-01',2,'organic_search','other-shop.example','','','',3,4,1)");
+$db->pdo->exec("INSERT INTO custom_jooim_dbcleaner_order_source_daily VALUES ('2026-10-01',1,'SK','Slovakia','organic_search','<script>',2)");
+$html = $m->content();
+check(strpos($html, 'example.com') !== false && strpos($html, 'Slovakia') !== false, 'legacy traffic and order summaries displayed');
+check(strpos($html, 'other-shop.example') === false, 'legacy statistics respect shop scope');
+check(strpos($html, '&lt;script&gt;') !== false && strpos($html, '<script>') === false, 'historical source values escaped');
+check(strpos($html, 'pagination') !== false && substr_count($html, 'example.com') === 20, 'legacy traffic pagination limits visible rows');
+Tools::$request['traffic_source_domain'] = 'absent.example';
+$html = $m->content();
+check(strpos($html, 'No aggregated traffic data yet.') !== false, 'statistics filters applied');
+check(!count(array_filter($db->queries, function ($q) { return strpos($q, 'DELETE') === 0; })), 'statistics rendering does not delete data');
+Tools::$request = array('jooim_tab' => 'invalid');
+check($m->activeTab() === 'settings', 'unknown tab falls back to settings');
+echo "All cleaner, upgrade and Statistics tab regression tests passed.\n";

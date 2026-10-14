@@ -15,8 +15,11 @@ class Jooim_dbcleaner extends Module
 {
     const CONFIG_ENABLE = 'JOOIM_DBCLEANER_ENABLE';
     const CONFIG_RETENTION = 'JOOIM_DBCLEANER_RETENTION_DAYS';
+    const CONFIG_SOURCE_RETENTION = 'JOOIM_DBCLEANER_SOURCE_RETENTION_DAYS';
     const CONFIG_BATCH_SIZE = 'JOOIM_DBCLEANER_BATCH_SIZE';
     const CONFIG_MAX_BATCHES = 'JOOIM_DBCLEANER_MAX_BATCHES';
+    const CONFIG_MAX_RUNTIME = 'JOOIM_DBCLEANER_MAX_RUNTIME';
+    const CONFIG_CLEAN_ORPHANS = 'JOOIM_DBCLEANER_CLEAN_ORPHANS';
     const CONFIG_CLEAR_LAYERED = 'JOOIM_DBCLEANER_CLEAR_LAYERED_FILTER';
     const CONFIG_AGGREGATE = 'JOOIM_DBCLEANER_AGGREGATE_STATS';
     const CONFIG_STATS_RETENTION = 'JOOIM_DBCLEANER_STATS_RETENTION_DAYS';
@@ -28,7 +31,7 @@ class Jooim_dbcleaner extends Module
     {
         $this->name = 'jooim_dbcleaner';
         $this->tab = 'administration';
-        $this->version = '1.00.02';
+        $this->version = '1.00.03';
         $this->author = 'JOO INTERNET MEDIA LTD';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -37,7 +40,7 @@ class Jooim_dbcleaner extends Module
         parent::__construct();
 
         $this->displayName = $this->l('Prestashop DB Cleaner');
-        $this->description = $this->l('Safely cleans old PrestaShop database statistics, clears selected cache tables and stores aggregated traffic source summaries.');
+        $this->description = $this->l('Safely cleans old visitor statistics and unreferenced anonymous guests in bounded batches and reports database usage.');
         $this->confirmUninstall = $this->l('Are you sure? Cleanup logs and aggregated statistics created by this module will be removed.');
     }
 
@@ -61,11 +64,14 @@ class Jooim_dbcleaner extends Module
         $token = Tools::passwdGen(48);
         $this->updateCronToken($token);
         return Configuration::updateValue(self::CONFIG_ENABLE, 1)
-            && Configuration::updateValue(self::CONFIG_RETENTION, 60)
-            && Configuration::updateValue(self::CONFIG_BATCH_SIZE, 10000)
+            && Configuration::updateValue(self::CONFIG_RETENTION, 30)
+            && Configuration::updateValue(self::CONFIG_SOURCE_RETENTION, 7)
+            && Configuration::updateValue(self::CONFIG_BATCH_SIZE, 5000)
             && Configuration::updateValue(self::CONFIG_MAX_BATCHES, 10)
-            && Configuration::updateValue(self::CONFIG_CLEAR_LAYERED, 1)
-            && Configuration::updateValue(self::CONFIG_AGGREGATE, 1)
+            && Configuration::updateValue(self::CONFIG_MAX_RUNTIME, 120)
+            && Configuration::updateValue(self::CONFIG_CLEAN_ORPHANS, 1)
+            && Configuration::updateValue(self::CONFIG_CLEAR_LAYERED, 0)
+            && Configuration::updateValue(self::CONFIG_AGGREGATE, 0)
             && Configuration::updateValue(self::CONFIG_STATS_RETENTION, 730)
             && Configuration::updateValue(self::CONFIG_TOKEN, $token)
             && Configuration::updateValue(self::CONFIG_TOKEN_GLOBAL, $token)
@@ -73,7 +79,8 @@ class Jooim_dbcleaner extends Module
             && Configuration::updateValue('JOOIM_DBCLEANER_RUNNING_SINCE', '0')
             && Configuration::updateValue('JOOIM_DBCLEANER_LAST_RUN', '')
             && Configuration::updateValue('JOOIM_DBCLEANER_LAST_STATUS', '')
-            && Configuration::updateValue('JOOIM_DBCLEANER_LAST_MESSAGE', '');
+            && Configuration::updateValue('JOOIM_DBCLEANER_LAST_MESSAGE', '')
+            && Configuration::updateValue('JOOIM_DBCLEANER_SCHEMA_VERSION', $this->version);
     }
 
     protected function deleteConfiguration()
@@ -81,8 +88,11 @@ class Jooim_dbcleaner extends Module
         $keys = array(
             self::CONFIG_ENABLE,
             self::CONFIG_RETENTION,
+            self::CONFIG_SOURCE_RETENTION,
             self::CONFIG_BATCH_SIZE,
             self::CONFIG_MAX_BATCHES,
+            self::CONFIG_MAX_RUNTIME,
+            self::CONFIG_CLEAN_ORPHANS,
             self::CONFIG_CLEAR_LAYERED,
             self::CONFIG_AGGREGATE,
             self::CONFIG_STATS_RETENTION,
@@ -93,6 +103,7 @@ class Jooim_dbcleaner extends Module
             'JOOIM_DBCLEANER_LAST_RUN',
             'JOOIM_DBCLEANER_LAST_STATUS',
             'JOOIM_DBCLEANER_LAST_MESSAGE',
+            'JOOIM_DBCLEANER_SCHEMA_VERSION',
         );
         foreach ($keys as $key) {
             Configuration::deleteByName($key);
@@ -102,7 +113,28 @@ class Jooim_dbcleaner extends Module
 
     public function ensureDatabaseSchema()
     {
-        return $this->installSql();
+        if (!$this->installSql()) {
+            return false;
+        }
+        $schemaVersion = (string) Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION');
+        if ($schemaVersion === '' || version_compare($schemaVersion, '1.00.03', '<')) {
+            $defaults = array(
+                self::CONFIG_SOURCE_RETENTION => 7,
+                self::CONFIG_MAX_RUNTIME => 120,
+            );
+            foreach ($defaults as $key => $value) {
+                if (!Configuration::get($key) && !Configuration::updateValue($key, $value)) {
+                    return false;
+                }
+            }
+            if (!Configuration::updateValue(self::CONFIG_CLEAN_ORPHANS, 1)
+                || !Configuration::updateValue(self::CONFIG_CLEAR_LAYERED, 0)
+                || !Configuration::updateValue(self::CONFIG_AGGREGATE, 0)) {
+                return false;
+            }
+            return Configuration::updateValue('JOOIM_DBCLEANER_SCHEMA_VERSION', $this->version);
+        }
+        return true;
     }
 
     protected function installSql()
@@ -114,9 +146,12 @@ class Jooim_dbcleaner extends Module
             `date_add` DATETIME NOT NULL,
             `run_type` VARCHAR(32) NOT NULL,
             `status` VARCHAR(32) NOT NULL,
+            `deleted_guests` INT UNSIGNED NOT NULL DEFAULT 0,
             `deleted_connections` INT UNSIGNED NOT NULL DEFAULT 0,
             `deleted_connections_source` INT UNSIGNED NOT NULL DEFAULT 0,
             `deleted_connections_page` INT UNSIGNED NOT NULL DEFAULT 0,
+            `deleted_orphan_connections_source` INT UNSIGNED NOT NULL DEFAULT 0,
+            `deleted_orphan_connections_page` INT UNSIGNED NOT NULL DEFAULT 0,
             `layered_filter_cleared` TINYINT(1) NOT NULL DEFAULT 0,
             `database_size_mb_before` DECIMAL(12,2) NULL,
             `database_size_mb_after` DECIMAL(12,2) NULL,
@@ -128,73 +163,25 @@ class Jooim_dbcleaner extends Module
             KEY `status` (`status`)
         ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8mb4';
 
-        $sql[] = 'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'jooim_dbcleaner_traffic_daily` (
-            `id_jooim_dbcleaner_traffic_daily` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `id_shop` INT UNSIGNED NOT NULL DEFAULT 0,
-            `date_day` DATE NOT NULL,
-            `source_type` VARCHAR(32) NOT NULL,
-            `source_domain` VARCHAR(190) NOT NULL DEFAULT "",
-            `utm_source` VARCHAR(190) NOT NULL DEFAULT "",
-            `utm_medium` VARCHAR(190) NOT NULL DEFAULT "",
-            `utm_campaign` VARCHAR(190) NOT NULL DEFAULT "",
-            `visits` INT UNSIGNED NOT NULL DEFAULT 0,
-            `pageviews` INT UNSIGNED NOT NULL DEFAULT 0,
-            `orders` INT UNSIGNED NOT NULL DEFAULT 0,
-            PRIMARY KEY (`id_jooim_dbcleaner_traffic_daily`),
-            UNIQUE KEY `uniq_daily_source` (`id_shop`, `date_day`, `source_type`, `source_domain`(120), `utm_source`(80), `utm_medium`(80), `utm_campaign`(120)),
-            KEY `date_day` (`date_day`),
-            KEY `source_type` (`source_type`),
-            KEY `id_shop_date` (`id_shop`, `date_day`)
-        ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8mb4';
-
-        $sql[] = 'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'jooim_dbcleaner_order_source_daily` (
-            `id_jooim_dbcleaner_order_source_daily` INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `id_shop` INT UNSIGNED NOT NULL DEFAULT 0,
-            `date_day` DATE NOT NULL,
-            `country_iso` VARCHAR(8) NOT NULL DEFAULT "",
-            `country_name` VARCHAR(128) NOT NULL DEFAULT "",
-            `source_type` VARCHAR(32) NOT NULL,
-            `source_domain` VARCHAR(190) NOT NULL DEFAULT "",
-            `orders` INT UNSIGNED NOT NULL DEFAULT 0,
-            PRIMARY KEY (`id_jooim_dbcleaner_order_source_daily`),
-            UNIQUE KEY `uniq_order_daily_source` (`id_shop`, `date_day`, `country_iso`, `source_type`, `source_domain`),
-            KEY `date_day` (`date_day`),
-            KEY `id_shop_date` (`id_shop`, `date_day`),
-            KEY `source_type` (`source_type`)
-        ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8mb4';
-
-        $sql[] = 'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'jooim_dbcleaner_order_attribution` (
-            `id_order` INT UNSIGNED NOT NULL,
-            `id_shop` INT UNSIGNED NOT NULL DEFAULT 0,
-            `date_add` DATETIME NOT NULL,
-            `country_iso` VARCHAR(8) NOT NULL DEFAULT "",
-            `country_name` VARCHAR(128) NOT NULL DEFAULT "",
-            `source_type` VARCHAR(32) NOT NULL,
-            `source_domain` VARCHAR(190) NOT NULL DEFAULT "",
-            PRIMARY KEY (`id_order`),
-            KEY `id_shop_date_add` (`id_shop`, `date_add`),
-            KEY `source_type` (`source_type`)
-        ) ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=utf8mb4';
-
         foreach ($sql as $query) {
             if (!Db::getInstance()->execute($query)) {
                 return false;
             }
         }
 
-        $this->addColumnIfMissing('jooim_dbcleaner_log', 'id_shop', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_jooim_dbcleaner_log`');
-        $this->addColumnIfMissing('jooim_dbcleaner_traffic_daily', 'id_shop', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_jooim_dbcleaner_traffic_daily`');
-        $this->addColumnIfMissing('jooim_dbcleaner_traffic_daily', 'orders', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `pageviews`');
-        $this->ensureIndex('jooim_dbcleaner_log', 'id_shop_date_add', '`id_shop`, `date_add`');
-        $this->ensureIndex('jooim_dbcleaner_traffic_daily', 'id_shop_date', '`id_shop`, `date_day`');
-        $this->ensureTrafficDailyUniqueIndex();
-
-        return true;
+        return $this->addColumnIfMissing('jooim_dbcleaner_log', 'id_shop', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `id_jooim_dbcleaner_log`')
+            && $this->addColumnIfMissing('jooim_dbcleaner_log', 'deleted_guests', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `status`')
+            && $this->addColumnIfMissing('jooim_dbcleaner_log', 'deleted_orphan_connections_source', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `deleted_connections_page`')
+            && $this->addColumnIfMissing('jooim_dbcleaner_log', 'deleted_orphan_connections_page', 'INT UNSIGNED NOT NULL DEFAULT 0 AFTER `deleted_orphan_connections_source`')
+            && $this->ensureIndex('jooim_dbcleaner_log', 'id_shop_date_add', '`id_shop`, `date_add`');
     }
 
     protected function addColumnIfMissing($table, $column, $definition)
     {
-        if (!JooimDbcleanerTools::tableExists($table) || JooimDbcleanerTools::columnExists($table, $column)) {
+        if (!JooimDbcleanerTools::tableExists($table)) {
+            return false;
+        }
+        if (JooimDbcleanerTools::columnExists($table, $column)) {
             return true;
         }
         return (bool) Db::getInstance()->execute('ALTER TABLE `'._DB_PREFIX_.pSQL($table).'` ADD `'.pSQL($column).'` '.$definition);
@@ -203,13 +190,16 @@ class Jooim_dbcleaner extends Module
     protected function ensureIndex($table, $indexName, $columnsSql)
     {
         if (!JooimDbcleanerTools::tableExists($table)) {
-            return true;
+            return false;
         }
         $rows = Db::getInstance()->executeS('SELECT COUNT(*) AS found_index
             FROM information_schema.statistics
             WHERE table_schema = "'.pSQL(_DB_NAME_).'"
               AND table_name = "'.pSQL(_DB_PREFIX_.$table).'"
-              AND index_name = "'.pSQL($indexName).'"');
+              AND index_name = "'.pSQL($indexName).'"', true, false);
+        if (!is_array($rows)) {
+            return false;
+        }
         if (isset($rows[0]['found_index']) && (int) $rows[0]['found_index'] > 0) {
             return true;
         }
@@ -249,8 +239,13 @@ class Jooim_dbcleaner extends Module
     public function getContent()
     {
         $this->synchronizeFooterAttributionHook();
-        $this->ensureDatabaseSchema();
-        $this->processCsvExport();
+        try {
+            if (!$this->ensureDatabaseSchema()) {
+                return $this->displayError($this->l('Unable to update the module database schema.'));
+            }
+        } catch (Throwable $e) {
+            return $this->displayError($this->l('Unable to update the module database schema.'));
+        }
         $output = '';
 
         if (Tools::isSubmit('submitJooimDbcleaner')) {
@@ -296,7 +291,7 @@ class Jooim_dbcleaner extends Module
     protected function getActiveTab()
     {
         $tab = (string) Tools::getValue('jooim_tab', 'settings');
-        $allowed = array('settings', 'info', 'stats');
+        $allowed = array('settings', 'info');
         return in_array($tab, $allowed, true) ? $tab : 'settings';
     }
 
@@ -306,7 +301,6 @@ class Jooim_dbcleaner extends Module
         $tabs = array(
             'settings' => $this->l('Settings'),
             'info' => $this->l('Important information'),
-            'stats' => $this->l('Statistics'),
         );
         $html = '<ul class="nav nav-tabs" style="margin-bottom:15px">';
         foreach ($tabs as $key => $label) {
@@ -321,8 +315,6 @@ class Jooim_dbcleaner extends Module
         switch ($this->getActiveTab()) {
             case 'info':
                 return $this->renderInfoPanel().$this->renderTablesPanel().$this->renderLogsPanel();
-            case 'stats':
-                return $this->renderTrafficPanel().$this->renderOrdersByCountryPanel();
             case 'settings':
             default:
                 return $this->renderForm().$this->renderCronPanel();
@@ -333,12 +325,12 @@ class Jooim_dbcleaner extends Module
     {
         Configuration::updateValue(self::CONFIG_ENABLE, (int) Tools::getValue(self::CONFIG_ENABLE));
         Configuration::updateValue(self::CONFIG_RETENTION, max(1, (int) Tools::getValue(self::CONFIG_RETENTION)));
-        Configuration::updateValue(self::CONFIG_BATCH_SIZE, max(100, (int) Tools::getValue(self::CONFIG_BATCH_SIZE)));
-        Configuration::updateValue(self::CONFIG_MAX_BATCHES, max(1, (int) Tools::getValue(self::CONFIG_MAX_BATCHES)));
+        Configuration::updateValue(self::CONFIG_SOURCE_RETENTION, max(1, (int) Tools::getValue(self::CONFIG_SOURCE_RETENTION)));
+        Configuration::updateValue(self::CONFIG_BATCH_SIZE, max(100, min(100000, (int) Tools::getValue(self::CONFIG_BATCH_SIZE))));
+        Configuration::updateValue(self::CONFIG_MAX_BATCHES, max(1, min(1000, (int) Tools::getValue(self::CONFIG_MAX_BATCHES))));
+        Configuration::updateValue(self::CONFIG_MAX_RUNTIME, max(15, (int) Tools::getValue(self::CONFIG_MAX_RUNTIME)));
+        Configuration::updateValue(self::CONFIG_CLEAN_ORPHANS, (int) Tools::getValue(self::CONFIG_CLEAN_ORPHANS));
         Configuration::updateValue(self::CONFIG_CLEAR_LAYERED, (int) Tools::getValue(self::CONFIG_CLEAR_LAYERED));
-        Configuration::updateValue(self::CONFIG_AGGREGATE, (int) Tools::getValue(self::CONFIG_AGGREGATE));
-        Configuration::updateValue(self::CONFIG_STATS_RETENTION, max(30, (int) Tools::getValue(self::CONFIG_STATS_RETENTION)));
-        Configuration::updateValue(self::CONFIG_STALE_LOCK, max(300, (int) Tools::getValue(self::CONFIG_STALE_LOCK)));
     }
 
     protected function registerFooterAttributionHook()
@@ -844,7 +836,15 @@ class Jooim_dbcleaner extends Module
         $lastStatus = Configuration::get('JOOIM_DBCLEANER_LAST_STATUS');
         $lastMessage = Configuration::get('JOOIM_DBCLEANER_LAST_MESSAGE');
 
+        $statsdata = Module::getInstanceByName('statsdata');
+        $statsdataActive = $statsdata && $statsdata->active;
+
         $html = '<div class="panel"><h3>'.$this->l('Database overview').'</h3>';
+        if ($statsdataActive) {
+            $html .= $this->displayWarning($this->l('The PrestaShop statsdata module is active. It can recreate large raw visitor-statistics tables. Keep it disabled when jooim_analytics is used instead.'));
+        } else {
+            $html .= '<p class="alert alert-success">'.$this->l('The PrestaShop statsdata module is disabled.').'</p>';
+        }
         $html .= '<p><strong>'.$this->l('Multishop scope').':</strong> '.htmlspecialchars($this->getCurrentShopIdForStats() ? $this->l('Current shop') : $this->l('All shops / global database'), ENT_QUOTES, 'UTF-8').'</p>';
         $html .= '<p><strong>'.$this->l('Current PrestaShop database').':</strong> '.htmlspecialchars(_DB_NAME_, ENT_QUOTES, 'UTF-8').'</p>';
         $html .= '<p><strong>'.$this->l('Approximate database size').':</strong> '.($size === null ? '-' : number_format($size, 2, '.', ' ').' MB').'</p>';
@@ -873,12 +873,12 @@ class Jooim_dbcleaner extends Module
         $helper->fields_value = array(
             self::CONFIG_ENABLE => (int) Configuration::get(self::CONFIG_ENABLE),
             self::CONFIG_RETENTION => (int) Configuration::get(self::CONFIG_RETENTION),
+            self::CONFIG_SOURCE_RETENTION => (int) Configuration::get(self::CONFIG_SOURCE_RETENTION),
             self::CONFIG_BATCH_SIZE => (int) Configuration::get(self::CONFIG_BATCH_SIZE),
             self::CONFIG_MAX_BATCHES => (int) Configuration::get(self::CONFIG_MAX_BATCHES),
+            self::CONFIG_MAX_RUNTIME => (int) Configuration::get(self::CONFIG_MAX_RUNTIME),
+            self::CONFIG_CLEAN_ORPHANS => (int) Configuration::get(self::CONFIG_CLEAN_ORPHANS),
             self::CONFIG_CLEAR_LAYERED => (int) Configuration::get(self::CONFIG_CLEAR_LAYERED),
-            self::CONFIG_AGGREGATE => (int) Configuration::get(self::CONFIG_AGGREGATE),
-            self::CONFIG_STATS_RETENTION => (int) Configuration::get(self::CONFIG_STATS_RETENTION),
-            self::CONFIG_STALE_LOCK => (int) Configuration::get(self::CONFIG_STALE_LOCK),
         );
 
         $fields = array(
@@ -901,10 +901,17 @@ class Jooim_dbcleaner extends Module
                     ),
                     array(
                         'type' => 'text',
-                        'label' => $this->l('Retention days for connection statistics'),
+                        'label' => $this->l('Retention days for connection records'),
                         'name' => self::CONFIG_RETENTION,
-                        'desc' => $this->l('Rows older than this will be removed from connections, connections_source and connections_page.'),
-                        'hint' => $this->l('Enter the number of days for which raw PrestaShop visitor statistics should be kept. Example: 60 means the module keeps the last 60 days and deletes older records from ps_connections, ps_connections_source and ps_connections_page. Do not set this to 1 unless you are sure you do not need recent visitor statistics.'),
+                        'desc' => $this->l('Old connections and related statistics are removed. Anonymous guests without remaining connections, carts or customer links are also removed. Sources have separate retention below.'),
+                        'hint' => $this->l('Enter how long parent rows in ps_connections should be kept. Related ps_connections_page and ps_connections_source rows are deleted before the parent. Direct source retention is configured separately below.'),
+                    ),
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Retention days for connections_source'),
+                        'name' => self::CONFIG_SOURCE_RETENTION,
+                        'desc' => $this->l('Rows are deleted directly by connections_source.date_add, independently of ps_connections.'),
+                        'hint' => $this->l('This is the critical protection against uncontrolled growth of ps_connections_source. A value of 7 keeps one week of raw source rows. The dedicated jooim_analytics module stores compact daily statistics, so long raw retention is not recommended.'),
                     ),
                     array(
                         'type' => 'text',
@@ -921,6 +928,25 @@ class Jooim_dbcleaner extends Module
                         'hint' => $this->l('Enter how many batches may run during one cron execution. Total possible deleted connection records per run are roughly Batch size multiplied by Maximum batches per run. Example: 5000 and 10 means up to about 50000 main connection records in one cron run. Lower this if the shop slows down during cleanup.'),
                     ),
                     array(
+                        'type' => 'text',
+                        'label' => $this->l('Maximum runtime per execution (seconds)'),
+                        'name' => self::CONFIG_MAX_RUNTIME,
+                        'desc' => $this->l('Checks the runtime deadline between SQL operations. A running query may exceed this limit.'),
+                        'hint' => $this->l('Recommended value: 120 seconds. This prevents a single cron execution from monopolizing the database on very large shops.'),
+                    ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Delete orphaned statistics rows'),
+                        'name' => self::CONFIG_CLEAN_ORPHANS,
+                        'is_bool' => true,
+                        'values' => array(
+                            array('id' => 'orphans_on', 'value' => 1, 'label' => $this->l('Yes')),
+                            array('id' => 'orphans_off', 'value' => 0, 'label' => $this->l('No')),
+                        ),
+                        'desc' => $this->l('Deletes rows from connections_source and connections_page whose parent connection no longer exists.'),
+                        'hint' => $this->l('This cleanup is safe because orphaned rows cannot be used by PrestaShop without their parent ps_connections row.'),
+                    ),
+                    array(
                         'type' => 'switch',
                         'label' => $this->l('Clear ps_layered_filter_block'),
                         'name' => self::CONFIG_CLEAR_LAYERED,
@@ -931,32 +957,6 @@ class Jooim_dbcleaner extends Module
                             array('id' => 'layered_on', 'value' => 1, 'label' => $this->l('Yes')),
                             array('id' => 'layered_off', 'value' => 0, 'label' => $this->l('No')),
                         ),
-                    ),
-                    array(
-                        'type' => 'switch',
-                        'label' => $this->l('Aggregate traffic source stats before deletion'),
-                        'name' => self::CONFIG_AGGREGATE,
-                        'is_bool' => true,
-                        'values' => array(
-                            array('id' => 'aggregate_on', 'value' => 1, 'label' => $this->l('Yes')),
-                            array('id' => 'aggregate_off', 'value' => 0, 'label' => $this->l('No')),
-                        ),
-                        'desc' => $this->l('Stores daily summarized traffic source statistics before deleting raw rows.'),
-                        'hint' => $this->l('When enabled, the module saves a small daily summary before removing raw PrestaShop statistics. It keeps counts such as visits, pageviews, source domain and UTM values. It does not store IP addresses, full referrer URLs or user-agent strings. Disable it if you only want deletion and do not need historical source summaries.'),
-                    ),
-                    array(
-                        'type' => 'text',
-                        'label' => $this->l('Aggregated stats retention days'),
-                        'name' => self::CONFIG_STATS_RETENTION,
-                        'desc' => $this->l('How long the small daily summary table should be kept.'),
-                        'hint' => $this->l('Enter how many days aggregated traffic summaries should stay in the module table. Example: 730 keeps about two years of daily source summaries. This setting affects only the module table ps_jooim_dbcleaner_traffic_daily, not the original PrestaShop statistics tables.'),
-                    ),
-                    array(
-                        'type' => 'text',
-                        'label' => $this->l('Stale lock timeout in seconds'),
-                        'name' => self::CONFIG_STALE_LOCK,
-                        'desc' => $this->l('Protection against two cleanup processes running at the same time.'),
-                        'hint' => $this->l('Enter the number of seconds after which an unfinished cleanup lock is considered abandoned. This protects the database from two cron executions running at the same time. Recommended value: 7200. Lower it only if your cron is guaranteed to finish quickly.'),
                     ),
                 ),
                 'submit' => array(
@@ -1014,12 +1014,12 @@ class Jooim_dbcleaner extends Module
         $rows = Db::getInstance()->executeS('SELECT * FROM `'._DB_PREFIX_.'jooim_dbcleaner_log` l '.$where.' ORDER BY id_jooim_dbcleaner_log DESC LIMIT '.(int) $offset.', '.(int) $perPage);
         $html = '<div class="panel"><h3>'.$this->l('Recent cleanup runs').'</h3>';
         $html .= $this->renderFilterForm('info', 'logs');
-        $html .= '<table class="table"><thead><tr><th>ID</th><th>'.$this->l('Shop ID').'</th><th>'.$this->l('Date').'</th><th>'.$this->l('Type').'</th><th>'.$this->l('Status').'</th><th>'.$this->l('Deleted connections').'</th><th>'.$this->l('Source').'</th><th>'.$this->l('Pages').'</th><th>'.$this->l('Layered cache').'</th><th>'.$this->l('DB before/after MB').'</th><th>'.$this->l('Runtime').'</th><th>'.$this->l('Message').'</th></tr></thead><tbody>';
+        $html .= '<table class="table"><thead><tr><th>ID</th><th>'.$this->l('Shop ID').'</th><th>'.$this->l('Date').'</th><th>'.$this->l('Type').'</th><th>'.$this->l('Status').'</th><th>'.$this->l('Deleted guests').'</th><th>'.$this->l('Deleted connections').'</th><th>'.$this->l('Source').'</th><th>'.$this->l('Pages').'</th><th>'.$this->l('Orphan source').'</th><th>'.$this->l('Orphan pages').'</th><th>'.$this->l('Layered cache').'</th><th>'.$this->l('DB before/after MB').'</th><th>'.$this->l('Runtime').'</th><th>'.$this->l('Message').'</th></tr></thead><tbody>';
         foreach ($rows as $row) {
-            $html .= '<tr><td>'.(int) $row['id_jooim_dbcleaner_log'].'</td><td>'.(int) (isset($row['id_shop']) ? $row['id_shop'] : 0).'</td><td>'.htmlspecialchars($row['date_add'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['run_type'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['deleted_connections'].'</td><td>'.(int) $row['deleted_connections_source'].'</td><td>'.(int) $row['deleted_connections_page'].'</td><td>'.((int) $row['layered_filter_cleared'] ? $this->l('yes') : $this->l('no')).'</td><td>'.htmlspecialchars($row['database_size_mb_before'], ENT_QUOTES, 'UTF-8').' / '.htmlspecialchars($row['database_size_mb_after'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['runtime_seconds'], ENT_QUOTES, 'UTF-8').'s</td><td>'.htmlspecialchars($row['message'], ENT_QUOTES, 'UTF-8').'</td></tr>';
+            $html .= '<tr><td>'.(int) $row['id_jooim_dbcleaner_log'].'</td><td>'.(int) (isset($row['id_shop']) ? $row['id_shop'] : 0).'</td><td>'.htmlspecialchars($row['date_add'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['run_type'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8').'</td><td>'.(int) $row['deleted_guests'].'</td><td>'.(int) $row['deleted_connections'].'</td><td>'.(int) $row['deleted_connections_source'].'</td><td>'.(int) $row['deleted_connections_page'].'</td><td>'.(int) (isset($row['deleted_orphan_connections_source']) ? $row['deleted_orphan_connections_source'] : 0).'</td><td>'.(int) (isset($row['deleted_orphan_connections_page']) ? $row['deleted_orphan_connections_page'] : 0).'</td><td>'.((int) $row['layered_filter_cleared'] ? $this->l('yes') : $this->l('no')).'</td><td>'.htmlspecialchars((string) $row['database_size_mb_before'], ENT_QUOTES, 'UTF-8').' / '.htmlspecialchars((string) $row['database_size_mb_after'], ENT_QUOTES, 'UTF-8').'</td><td>'.htmlspecialchars($row['runtime_seconds'], ENT_QUOTES, 'UTF-8').'s</td><td>'.htmlspecialchars((string) $row['message'], ENT_QUOTES, 'UTF-8').'</td></tr>';
         }
         if (!$rows) {
-            $html .= '<tr><td colspan="12">'.$this->l('No cleanup runs yet.').'</td></tr>';
+            $html .= '<tr><td colspan="15">'.$this->l('No cleanup runs yet.').'</td></tr>';
         }
         $html .= '</tbody></table>'.$this->renderPagination('info', 'logs', $page, $perPage, $total).'</div>';
         return $html;

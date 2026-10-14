@@ -2,8 +2,8 @@
 <module>
     <name>jooim_dbcleaner</name>
     <displayName><![CDATA[Prestashop DB Cleaner]]></displayName>
-    <version><![CDATA[1.00.02]]></version>
-    <description><![CDATA[Safely cleans old PrestaShop database statistics, clears selected cache tables and stores aggregated traffic source summaries.]]></description>
+    <version><![CDATA[1.00.03]]></version>
+    <description><![CDATA[Safely cleans old visitor statistics and unreferenced anonymous guests in bounded batches and reports database usage.]]></description>
     <author><![CDATA[JOO INTERNET MEDIA LTD]]></author>
     <tab><![CDATA[administration]]></tab>
     <is_configurable>1</is_configurable>

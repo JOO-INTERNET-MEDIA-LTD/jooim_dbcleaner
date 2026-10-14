@@ -5,16 +5,17 @@
 Repository: https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner  
 Author: JOO INTERNET MEDIA LTD  
 Module folder name: `jooim_dbcleaner`  
-Version: `1.00.00`
+Version: `1.00.03`
 
 ## What the module does
 
 The module mainly cleans old traffic statistics that can unnecessarily increase the size of many PrestaShop databases:
 
-- deletes old records from `ps_connections`,
-- deletes related records from `ps_connections_source`,
-- deletes related records from `ps_connections_page`,
-- can save simple daily traffic source summaries before deleting old records,
+- deletes old records from `ps_connections` in bounded batches,
+- deletes `ps_connections_source` directly by its own `date_add`, independently of `ps_connections`,
+- deletes related and orphaned records from `ps_connections_source` and `ps_connections_page`,
+- checks a runtime deadline between SQL operations so large databases continue on the next cron run,
+- deletes anonymous guests identified through expired connections only when no connection, cart or customer reference remains,
 - can optionally clear the `ps_layered_filter_block` table,
 - displays the approximate database size,
 - stores logs of recent cleanup runs,
@@ -28,7 +29,7 @@ The module intentionally avoids risky or overly aggressive database operations:
 - it does not delete `ps_layered_price_index`,
 - it does not modify products, orders, customers or categories,
 - it does not monitor the physical disk space of the server,
-- it does not store IP addresses, full referrer URLs or user-agent strings in its own aggregated statistics.
+- it does not collect analytics; use the separate `jooim_analytics` module for compact daily statistics.
 
 ## Installation for beginners
 
@@ -49,13 +50,13 @@ The module intentionally avoids risky or overly aggressive database operations:
 Do not start aggressively on a large database. Test the module with conservative values first:
 
 - **Enable cleanup:** Yes
-- **Retention days for connection statistics:** 60
-- **Batch size:** 1000
-- **Maximum batches per run:** 5
-- **Clear ps_layered_filter_block:** No for the first test; enable it only after verifying the basic cleanup
-- **Aggregate traffic source stats before deletion:** Yes, if you want to keep a simple summary of traffic sources
-- **Aggregated stats retention days:** 730
-- **Stale lock timeout in seconds:** 7200
+- **Retention days for connection statistics:** 30
+- **Retention days for connections_source:** 7
+- **Batch size:** 5000
+- **Maximum batches per run:** 10
+- **Maximum runtime per execution:** 120 seconds
+- **Delete orphaned statistics rows:** Yes
+- **Clear ps_layered_filter_block:** No; enable it only when that cache table is demonstrably a problem
 
 If the cron runs quickly and the shop remains stable, you can gradually increase `Batch size` to 5000 or 10000.
 
@@ -68,6 +69,10 @@ Enables or disables the actual cleanup. When disabled, the module can remain ins
 ### Retention days for connection statistics
 
 Defines how many days of original PrestaShop traffic statistics should be kept. For example, the value `60` means the module keeps the last 60 days and deletes older records.
+
+### Retention days for connections_source
+
+Deletes old source rows directly by their own `date_add`, even when no matching row remains in `ps_connections`. This is the critical fix for uncontrolled `ps_connections_source` growth.
 
 ### Batch size
 
@@ -85,17 +90,17 @@ Batch size × Maximum batches per run
 
 Optionally clears the cache table `ps_layered_filter_block`. This does not delete products, categories or the price index. PrestaShop or the faceted search module will rebuild the cache when needed.
 
-### Aggregate traffic source stats before deletion
+### Cleanup locking and runtime
 
-Before deleting old records, the module can save a compact daily summary of traffic sources. This is a lightweight overview, not a full analytics replacement.
+An atomic MySQL/MariaDB named lock prevents concurrent cleaners for the same database and prefix. If named locks are unavailable, cleanup returns an error without deleting data. No non-atomic configuration fallback is used. The old stale-lock setting is retained internally for compatibility but is no longer used or displayed.
 
-### Aggregated stats retention days
+The runtime deadline is checked between SQL operations. It cannot interrupt a running query or guarantee a hard wall-clock limit. Related statistics are deleted in bounded row batches; a parent connection is retained when the deadline is reached before child cleanup finishes. Module-data purges are bounded too. The optional cache TRUNCATE remains a single operation.
 
-Defines how long daily summaries should be kept in the module table `ps_jooim_dbcleaner_traffic_daily`.
+### Safe guest cleanup
 
-### Stale lock timeout in seconds
+`guest` has no creation timestamp in the standard PrestaShop 8/9 schema. The cleaner only considers guest IDs taken from connections older than the configured connection retention. After removing those connections, it deletes an anonymous guest only when `id_customer` is zero or NULL, no cart references it, and no connection remains in any shop. Guests without verifiable age, guests linked to customers or carts, and guests with recent connections are retained. If a run reaches its deadline immediately after connection removal, its guest candidates are conservatively retained; this release does not sweep historical orphan guests of unknown age.
 
-Prevents two cleanup processes from running at the same time. If a previous run gets stuck, the lock is considered stale after this number of seconds.
+All SQL uses `_DB_PREFIX_`; `ps_` in examples is only a conventional prefix. Third-party tables with custom guest references are outside this cleanup scope.
 
 ## Cron
 
@@ -145,24 +150,27 @@ The module does not download, unzip or overwrite files automatically. This is in
 Do not use GitHub automatic `Source code (zip)` or `Source code (tar.gz)` files for PrestaShop installation. These archives are generated by GitHub for developers and may contain a folder name that is not valid for direct PrestaShop module installation.
 
 
-## Version 1.00.02
+## Upgrade without uninstalling
 
-This version adds a multishop-aware administration interface, tabs for settings, important information and statistics, paginated cleanup logs, CSV export for statistics, and order-source statistics by country, source type and source domain.
+1. Keep the existing module installed; uninstalling deletes its configuration and module tables.
+2. Upload the installation ZIP from GitHub Release assets, not GitHub's automatic Source code ZIP.
+3. Open module configuration to apply the checked schema upgrade.
+4. Review the new seven-day source retention and enabled orphan cleanup. Existing connection retention and batch settings remain unchanged. Legacy aggregation and automatic layered-cache clearing are disabled during upgrade.
+5. Check cron, update status and cleanup logs on a staging copy first.
 
-### Safe upgrade from an older version
+The legacy statistics tab and CSV export have been removed. Existing aggregate tables are preserved during upgrade, but old rows are still purged according to the previous retention setting. This module does not install `jooim_analytics` or automatically transfer data to it.
 
-To upgrade without losing data created by the previous version:
+Cleanup acts on the shared database in multishop. Guest protections check all shops; displayed logs follow the selected Back Office shop context.
 
-1. Do not uninstall the old module. Uninstalling removes module tables and configuration.
-2. Download the installation ZIP from GitHub Releases. Do not use GitHub automatic “Source code ZIP”.
-3. In PrestaShop Back Office, go to Modules > Module Manager > Upload a module.
-4. Upload the new `jooim_dbcleaner_v1.00.02.zip` package.
-5. Open the module configuration once after upload. The module will automatically create or update its internal database tables.
-6. Check the Cron URL and the Update check block.
-7. Run the cron manually once and verify the result in Important information > Recent cleanup runs.
+## Version 1.00.03
 
-The upgrade keeps existing configuration, cleanup logs and aggregated traffic statistics. New tables/columns are added automatically when the module configuration or cron is executed.
+This maintenance release fixes the critical cleanup gap in `ps_connections_source`. Previous versions deleted source rows only when their parent `ps_connections` row was selected. Version 1.00.03 also deletes source rows directly by `connections_source.date_add`, adds orphan cleanup, an atomic MySQL lock and a runtime deadline checked between SQL operations.
 
-### Multishop notes
+For new page, product, category, CMS, manufacturer and faceted-filter statistics use the separate `jooim_analytics` module. Legacy aggregate tables remain in the database but aggregation and the statistics UI are removed.
 
-The cleaner works on the shared PrestaShop database. In multishop installations, logs and aggregated statistics store `id_shop` where the original PrestaShop data provides it. When the Back Office is opened in a specific shop context, statistics are filtered for the current shop. In all-shops context, the module shows global database information.
+
+## Development and release preparation
+
+- Run `php tests/run.php` (PHP with PDO SQLite). The standalone tests exercise cleanup SQL against an in-memory SQLite database with MySQL date/DELETE LIMIT syntax adapted by the test adapter; they do not replace MySQL/MariaDB or PrestaShop integration tests.
+- Run `python3 tools/build-release.py` to create `dist/jooim_dbcleaner-v1.00.03.zip` and its SHA-256 checksum. The ZIP contains only installable module files under `jooim_dbcleaner/`.
+- See [RELEASE.md](RELEASE.md) for release notes and the remaining PrestaShop 8/9 staging checks.

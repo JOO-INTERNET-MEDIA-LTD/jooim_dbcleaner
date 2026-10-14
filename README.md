@@ -5,7 +5,7 @@
 Repository: https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner  
 Author: JOO INTERNET MEDIA LTD  
 Module folder name: `jooim_dbcleaner`  
-Version: `1.00.03`
+Version: `1.00.04`
 
 ## What the module does
 
@@ -162,6 +162,12 @@ The Statistics tab displays existing historical traffic and order-source summari
 
 Cleanup acts on the shared database in multishop. Guest protections check all shops; displayed logs follow the selected Back Office shop context.
 
+## Version 1.00.04
+
+Restores the Statistics tab alongside Settings and Important information. Existing historical traffic and order-source summaries remain available with filters, pagination and multishop filtering. Fresh installations without legacy tables show an empty state. New aggregation remains disabled and CSV export remains unavailable.
+
+Upgrading from 1.00.03 keeps existing cleanup settings and does not reapply the 1.00.03 configuration defaults.
+
 ## Version 1.00.03
 
 This maintenance release fixes the critical cleanup gap in `ps_connections_source`. Previous versions deleted source rows only when their parent `ps_connections` row was selected. Version 1.00.03 also deletes source rows directly by `connections_source.date_add`, adds orphan cleanup, an atomic MySQL lock and a runtime deadline checked between SQL operations.
@@ -172,5 +178,5 @@ For new page, product, category, CMS, manufacturer and faceted-filter statistics
 ## Development and release preparation
 
 - Run `php tests/run.php` (PHP with PDO SQLite). The standalone tests exercise cleanup SQL against an in-memory SQLite database with MySQL date/DELETE LIMIT syntax adapted by the test adapter; they do not replace MySQL/MariaDB or PrestaShop integration tests.
-- Run `python3 tools/build-release.py` to create `dist/jooim_dbcleaner-v1.00.03.zip` and its SHA-256 checksum. The ZIP contains only installable module files under `jooim_dbcleaner/`.
+- Run `python3 tools/build-release.py` to create `dist/jooim_dbcleaner-v1.00.04.zip` and its SHA-256 checksum. The ZIP contains only installable module files under `jooim_dbcleaner/`.
 - See [RELEASE.md](RELEASE.md) for release notes and the remaining PrestaShop 8/9 staging checks.

@@ -31,7 +31,7 @@ class Jooim_dbcleaner extends Module
     {
         $this->name = 'jooim_dbcleaner';
         $this->tab = 'administration';
-        $this->version = '1.00.03';
+        $this->version = '1.00.04';
         $this->author = 'JOO INTERNET MEDIA LTD';
         $this->need_instance = 0;
         $this->bootstrap = true;
@@ -1030,7 +1030,7 @@ class Jooim_dbcleaner extends Module
 
     protected function renderStatisticsPanel()
     {
-        $html = '<div class="alert alert-info">'.$this->l('Historical statistics saved by earlier module versions are displayed below. Version 1.00.03 does not collect new statistics.').'</div>';
+        $html = '<div class="alert alert-info">'.$this->l('Historical statistics saved by earlier module versions are displayed below. This module does not collect new statistics.').'</div>';
         return $html.$this->renderTrafficPanel().$this->renderOrdersByCountryPanel();
     }
 

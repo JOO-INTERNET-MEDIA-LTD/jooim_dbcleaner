@@ -6,7 +6,7 @@ The currently supported version is:
 
 | Version | Supported |
 | --- | --- |
-| 1.00.03 | Yes |
+| 1.00.04 | Yes |
 
 ## Security recommendations
 

@@ -217,5 +217,5 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_06f2034f507e3c8c702617e85
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_22dbf5b1119553f5763249116b6b9ca1'] = 'Bezpečne čistí staré návštevnostné štatistiky a anonymných návštevníkov bez väzieb v obmedzených dávkach a zobrazuje využitie databázy.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_92028e0ea6641323deb78e16c2a28b8f'] = 'Odstránia sa staré spojenia a súvisiace štatistiky. Odstránia sa aj anonymní návštevníci bez ďalších spojení, košíkov alebo väzby na zákazníka. Zdroje majú nižšie samostatné uchovávanie.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e825e64103a3aed1d72166aba952e2a7'] = 'Časový limit sa kontroluje medzi SQL operáciami. Práve bežiaci dotaz môže tento limit prekročiť.';
-$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_6213ac86283d5e3b547bfab18123e0ab'] = 'Nižšie sa zobrazujú historické štatistiky uložené staršími verziami modulu. Verzia 1.00.03 nezbiera nové štatistiky.';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_98f274bc0fb5ea5fabb3e3d98e1bac9b'] = 'Nižšie sa zobrazujú historické štatistiky uložené staršími verziami modulu. Tento modul nezbiera nové štatistiky.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_a40eda1fb83914fda7aaa22981585cac'] = 'Pre túto inštaláciu nie sú dostupné historické štatistiky.';

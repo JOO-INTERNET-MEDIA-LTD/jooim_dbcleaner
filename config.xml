@@ -2,7 +2,7 @@
 <module>
     <name>jooim_dbcleaner</name>
     <displayName><![CDATA[Prestashop DB Cleaner]]></displayName>
-    <version><![CDATA[1.00.03]]></version>
+    <version><![CDATA[1.00.04]]></version>
     <description><![CDATA[Safely cleans old visitor statistics and unreferenced anonymous guests in bounded batches and reports database usage.]]></description>
     <author><![CDATA[JOO INTERNET MEDIA LTD]]></author>
     <tab><![CDATA[administration]]></tab>

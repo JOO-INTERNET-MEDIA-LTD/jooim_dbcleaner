@@ -5,7 +5,7 @@ define('_DB_PREFIX_', 'custom_');
 define('_DB_NAME_', 'test');
 define('_MYSQL_ENGINE_', 'InnoDB');
 function pSQL($value, $html = false) { return str_replace("'", "''", $value); }
-class Module { public $version = '1.00.03'; }
+class Module { public $version = '1.00.04'; }
 class Configuration {
     public static $values = array();
     public static $failKey = '';
@@ -176,8 +176,18 @@ check(!$m->ensureDatabaseSchema() && !Configuration::get('JOOIM_DBCLEANER_SCHEMA
 $m->ok = true; Configuration::$failKey = Jooim_dbcleaner::CONFIG_CLEAN_ORPHANS;
 check(!$m->ensureDatabaseSchema() && !Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION'), 'failed defaults never marked upgraded');
 Configuration::$failKey = '';
-check($m->ensureDatabaseSchema() && Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION') === '1.00.03', 'successful upgrade version recorded');
+check($m->ensureDatabaseSchema() && Configuration::get('JOOIM_DBCLEANER_SCHEMA_VERSION') === '1.00.04', 'successful upgrade version recorded');
 
+
+Configuration::$values = array(
+    'JOOIM_DBCLEANER_SCHEMA_VERSION' => '1.00.03',
+    Jooim_dbcleaner::CONFIG_SOURCE_RETENTION => 21,
+    Jooim_dbcleaner::CONFIG_MAX_RUNTIME => 300,
+    Jooim_dbcleaner::CONFIG_CLEAN_ORPHANS => 0,
+    Jooim_dbcleaner::CONFIG_CLEAR_LAYERED => 1,
+);
+$before = Configuration::$values;
+check($m->ensureDatabaseSchema() && Configuration::$values === $before, 'upgrade from 1.00.03 preserves existing cleanup configuration');
 
 class StatisticsProbe extends Jooim_dbcleaner {
     public $shopId = 1;

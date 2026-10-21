@@ -2,7 +2,7 @@
 global $_MODULE;
 $_MODULE = array();
 
-$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_63bfc6a8c34e0800865af5afb8a479e9'] = 'Prestashop DB Cleaner';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_c493764a2f14d73975c320fa665e6c11'] = 'Безпечно очищає стару статистику бази даних PrestaShop, очищає вибрані таблиці кешу та зберігає агреговані підсумки джерел трафіку.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8b9c8f8a2fd1dd92fc90d919a69e5d4c'] = 'Ви впевнені? Журнали очищення та агрегована статистика, створені цим модулем, будуть видалені.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_f38f5974cdc23279ffe6d203641a8bdf'] = 'Налаштування оновлено.';
@@ -78,7 +78,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d7e637a6e9ff116de2fa89551
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_2c424ca1398cffa9a0715608d94118b4'] = 'Перегляди сторінок';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_77c6043b7cae5b819b82b3f3eda4c2d4'] = 'Агрегованих даних трафіку ще немає.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_0f46abf9fbbbb3f98d06a8c931733514'] = 'Модуль Prestashop від';
-$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_63bfc6a8c34e0800865af5afb8a479e9'] = 'Prestashop DB Cleaner';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_c493764a2f14d73975c320fa665e6c11'] = 'Безпечно очищає стару статистику бази даних PrestaShop, очищає вибрані таблиці кешу та зберігає агреговані підсумки джерел трафіку.';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8b9c8f8a2fd1dd92fc90d919a69e5d4c'] = 'Ви впевнені? Журнали очищення та агрегована статистика, створені цим модулем, будуть видалені.';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_f38f5974cdc23279ffe6d203641a8bdf'] = 'Налаштування оновлено.';
@@ -153,7 +153,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_eae639a70006feff484a39
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_d7e637a6e9ff116de2fa89551240a94d'] = 'Відвідування';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_2c424ca1398cffa9a0715608d94118b4'] = 'Перегляди сторінок';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_77c6043b7cae5b819b82b3f3eda4c2d4'] = 'Агрегованих даних трафіку ще немає.';
-$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_0f46abf9fbbbb3f98d06a8c931733514'] = 'Модуль Prestashop від';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_ddc796b10ff22262407e143e3b59fdff'] = 'Модуль PrestaShop від';
 
 // GitHub update checker
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e2b8575e1fd2467e8d1ee9749a57513c'] = 'Update check';
@@ -194,3 +194,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d47588cc7fbf16821828a344b
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_59716c97497eb9694541f7c3d37b1a4d'] = 'Країна';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_26613e09abed21b0b9770b4f08c91f69'] = 'ISO країни';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_3c17230c24239adc62643be5255f5f53'] = 'Статистика джерел замовлень поки відсутня.';
+
+// Retain legacy source labels still used by existing forms.
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';

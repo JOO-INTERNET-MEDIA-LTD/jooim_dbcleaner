@@ -1,2 +1,13 @@
 /dist/
 /jooim_dbcleaner-v*.zip
+
+/docs/
+/AGENTS.md
+/.tools/
+.DS_Store
+__pycache__/
+*.py[cod]
+.env
+.env.*
+*.pem
+*.key

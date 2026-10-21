@@ -1,0 +1,18 @@
+/* Shared standard revision 1.0: original Heureka rules remain authoritative. */
+.jooim-portfolio-admin{max-width:1120px;color:#123047}
+.jooim-portfolio-admin .panel{padding:24px;margin-bottom:20px;border:1px solid #dce5ec;border-radius:14px;box-shadow:0 4px 18px rgba(18,48,71,.045)}
+.jooim-portfolio-admin h2{font-size:22px;font-weight:650;line-height:1.4}
+.jooim-portfolio-admin h3{font-size:17px;font-weight:650;margin-bottom:14px}
+.jooim-portfolio-admin p{line-height:1.65;max-width:900px;overflow-wrap:anywhere}
+.jooim-portfolio-admin label{font-weight:600;margin-bottom:9px}
+.jooim-portfolio-admin form{max-width:900px}
+.jooim-portfolio-admin input[type=text],.jooim-portfolio-admin input[type=password],.jooim-portfolio-admin input[type=number],.jooim-portfolio-admin select,.jooim-portfolio-admin textarea{box-sizing:border-box;max-width:100%;min-height:44px;padding:10px 12px;border:1px solid #bccedb;border-radius:8px;font-size:14px}
+.jooim-portfolio-admin select{max-width:396px}
+.jooim-portfolio-admin .btn{min-height:42px;padding:10px 17px;border-radius:8px;font-weight:600;line-height:20px;white-space:normal}
+.jooim-portfolio-admin .btn-primary{background:#087f9e;border-color:#087f9e;color:#fff}
+.jooim-portfolio-admin .btn-primary:hover{background:#066982;border-color:#066982}
+.jooim-portfolio-admin a:focus-visible,.jooim-portfolio-admin button:focus-visible{outline:3px solid #00b6d5;outline-offset:3px}
+.jooim-portfolio-admin input:focus-visible,.jooim-portfolio-admin select:focus-visible,.jooim-portfolio-admin textarea:focus-visible{outline:2px solid #00b6d5;outline-offset:1px;border-color:#008caf}
+.jooim-portfolio-admin .nav-tabs a{background:transparent;border-radius:0;border-bottom:3px solid transparent}
+.jooim-portfolio-admin .nav-tabs .active a{border-bottom-color:#008caf}
+@media(max-width:700px){.jooim-portfolio-admin .panel{padding:18px}.jooim-portfolio-admin h2{font-size:19px}.jooim-portfolio-admin .btn{margin-bottom:8px}.jooim-portfolio-admin .table-responsive{overflow-x:auto}}

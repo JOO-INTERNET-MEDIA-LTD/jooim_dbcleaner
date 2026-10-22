@@ -1,18 +1,57 @@
-/* Shared standard revision 1.0: original Heureka rules remain authoritative. */
-.jooim-portfolio-admin{max-width:1120px;color:#123047}
-.jooim-portfolio-admin .panel{padding:24px;margin-bottom:20px;border:1px solid #dce5ec;border-radius:14px;box-shadow:0 4px 18px rgba(18,48,71,.045)}
-.jooim-portfolio-admin h2{font-size:22px;font-weight:650;line-height:1.4}
-.jooim-portfolio-admin h3{font-size:17px;font-weight:650;margin-bottom:14px}
-.jooim-portfolio-admin p{line-height:1.65;max-width:900px;overflow-wrap:anywhere}
-.jooim-portfolio-admin label{font-weight:600;margin-bottom:9px}
-.jooim-portfolio-admin form{max-width:900px}
-.jooim-portfolio-admin input[type=text],.jooim-portfolio-admin input[type=password],.jooim-portfolio-admin input[type=number],.jooim-portfolio-admin select,.jooim-portfolio-admin textarea{box-sizing:border-box;max-width:100%;min-height:44px;padding:10px 12px;border:1px solid #bccedb;border-radius:8px;font-size:14px}
-.jooim-portfolio-admin select{max-width:396px}
-.jooim-portfolio-admin .btn{min-height:42px;padding:10px 17px;border-radius:8px;font-weight:600;line-height:20px;white-space:normal}
-.jooim-portfolio-admin .btn-primary{background:#087f9e;border-color:#087f9e;color:#fff}
-.jooim-portfolio-admin .btn-primary:hover{background:#066982;border-color:#066982}
-.jooim-portfolio-admin a:focus-visible,.jooim-portfolio-admin button:focus-visible{outline:3px solid #00b6d5;outline-offset:3px}
-.jooim-portfolio-admin input:focus-visible,.jooim-portfolio-admin select:focus-visible,.jooim-portfolio-admin textarea:focus-visible{outline:2px solid #00b6d5;outline-offset:1px;border-color:#008caf}
-.jooim-portfolio-admin .nav-tabs a{background:transparent;border-radius:0;border-bottom:3px solid transparent}
-.jooim-portfolio-admin .nav-tabs .active a{border-bottom-color:#008caf}
-@media(max-width:700px){.jooim-portfolio-admin .panel{padding:18px}.jooim-portfolio-admin h2{font-size:19px}.jooim-portfolio-admin .btn{margin-bottom:8px}.jooim-portfolio-admin .table-responsive{overflow-x:auto}}
+/* Joobox configuration UI: scoped implementation of the original Heureka rules. */
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin){max-width:1120px;color:#123047;font:inherit;overflow-wrap:anywhere}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) *{box-sizing:border-box}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel{padding:24px;margin:0 0 20px;border:1px solid #dce5ec;border-radius:14px;background:#fff;box-shadow:0 4px 18px rgba(18,48,71,.045)}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-support{border-top:3px solid #00aecb}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-updates{background:#f8fbfd}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-updates>p:nth-of-type(-n+3){display:inline-block;vertical-align:top;margin:0 28px 12px 0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) h2{margin:0;font-size:22px;font-weight:650;line-height:1.4;color:#123047}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) h3,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel-heading{height:auto!important;min-height:0;margin:0 0 14px!important;padding:0!important;border:0!important;background:transparent;font-size:17px!important;font-weight:650;line-height:1.5;text-transform:none!important;color:#123047}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) p{line-height:1.65;max-width:900px;color:#536b7d}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .alert p{color:inherit}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-heading{display:flex;align-items:center;gap:16px;margin-bottom:22px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-heading img{width:64px;height:64px;flex:0 0 64px;border-radius:12px;object-fit:cover}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-version{display:block;margin-top:4px;font-size:12px;color:#536b7d}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-settings .panel:not(.panel-danger){margin:0 0 24px;padding:0;border:0;border-radius:0;box-shadow:none}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) form{max-width:900px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .form-wrapper{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px 28px;max-width:820px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .form-wrapper>.form-group{margin:0;min-width:0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .form-horizontal .form-group>label,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .form-horizontal .form-group>div{float:none;width:100%;margin-left:0;padding-left:0;padding-right:0;text-align:start}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) label{display:block;font-weight:600;margin-bottom:9px;line-height:1.5}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) label:has(input[type=checkbox]){display:inline-flex;align-items:center;gap:8px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input:not([type]),:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=text],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=password],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=email],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=url],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=number],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input[type=date],:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) select,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) textarea{width:100%;max-width:100%;min-height:44px;height:auto;padding:10px 12px;border:1px solid #bccedb;border-radius:8px;background:#fff;font-size:14px;line-height:1.5;color:#123047}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) select{max-width:396px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) textarea{resize:vertical}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .help-block{margin-top:9px;font-size:13px;line-height:1.65;color:#536b7d}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 18px;margin-bottom:16px;background:#f4f8fb;border:1px solid #e0e9ef;border-radius:10px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-row>label{margin:0;cursor:pointer}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-field .jooim-toggle-row{margin-bottom:0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-field>label{display:block}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle{position:relative;display:inline-flex;width:46px;height:26px;flex:0 0 46px;vertical-align:middle}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle input[type=checkbox]{position:absolute!important;inset:0!important;width:46px!important;height:26px!important;opacity:0!important;margin:0!important;cursor:pointer;z-index:1;display:block!important;clip:auto!important}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-track{position:absolute;inset:0;border-radius:30px;background:#9aabb8;pointer-events:none;transition:background .15s}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-track:before{content:"";position:absolute;width:20px;height:20px;top:3px;left:3px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;transition:transform .15s}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle input:checked+.jooim-toggle-track{background:#087f9e}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle input:checked+.jooim-toggle-track:before{transform:translateX(20px)}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle input:focus-visible+.jooim-toggle-track{outline:3px solid #00b6d5;outline-offset:3px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .btn{min-height:42px;height:auto;padding:10px 17px;border-radius:8px;font-weight:600;line-height:20px;white-space:normal;max-width:100%}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .btn-primary{background:#087f9e;border-color:#087f9e;color:#fff}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .btn-primary:hover{background:#066982;border-color:#066982}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-support .btn{margin:0 6px 8px 0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel-footer,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin:28px 0 0;padding:20px 0 0;height:auto;min-height:0;border-top:1px solid #e2eaf0;background:transparent;box-shadow:none}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel-footer .btn{float:none}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel-footer .btn i{display:none}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .nav-tabs{display:flex;flex-wrap:wrap;gap:0 20px;padding:0;border-bottom:1px solid #dce5ec;list-style:none}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .nav-tabs>li{float:none;margin:0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .nav-tabs>li>a{display:block;padding:12px 2px;margin:0;background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;color:#536b7d;font-weight:600}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .nav-tabs>li.active>a{border-bottom-color:#008caf;background:transparent;color:#123047}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) a:focus-visible,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) button:focus-visible{outline:3px solid #00b6d5;outline-offset:3px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) input:focus-visible,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) select:focus-visible,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) textarea:focus-visible{outline:2px solid #00b6d5;outline-offset:1px;border-color:#008caf;box-shadow:0 0 0 3px #00b4d32b}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .table-responsive{max-width:100%;overflow-x:auto}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-diagnostics{display:grid;grid-template-columns:minmax(120px,240px) minmax(0,1fr);gap:10px 18px}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-diagnostics dt{font-weight:600;margin:0}
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-diagnostics dd{margin:0;min-width:0}
+@media(max-width:700px){:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel{padding:18px}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) h2{font-size:19px}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-heading{gap:12px}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .form-wrapper{grid-template-columns:minmax(0,1fr)}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-updates>p:nth-of-type(-n+3){display:block;margin-right:0}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .panel-footer .btn,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-actions .btn{width:100%}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-diagnostics{grid-template-columns:minmax(0,1fr);gap:4px}:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-diagnostics dd{margin-bottom:10px}}
+@media(prefers-reduced-motion:reduce){:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-track,:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-toggle-track:before{transition:none}}
+
+:is(.bootstrap .jooim-portfolio-admin,.jooim-portfolio-admin) .jooim-wide-field{grid-column:1/-1;max-width:680px}

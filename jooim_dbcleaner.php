@@ -284,7 +284,7 @@ class Jooim_dbcleaner extends Module
         return $output
             .$this->renderJooboxSupportPanel()
             .$this->renderUpdateCheckPanel()
-            .$this->renderTabs()
+            .'<!--jooim-settings-->'.$this->renderTabs()
             .$this->renderActiveTabContent();
     }
 
@@ -483,7 +483,7 @@ class Jooim_dbcleaner extends Module
         $url = 'https://support.joobox.eu';
         $github = 'https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner';
 
-        return '<div class="panel jooim-dbcleaner-support-panel">'
+        return '<div class="panel jooim-support jooim-dbcleaner-support-panel">'
             .'<h3><i class="icon-life-ring"></i> '.$this->l('Joobox support for this module').'</h3>'
             .'<p>'.$this->l('This free GitHub module is provided without individual technical support. Installation, configuration, production testing, updates and troubleshooting are available for customers using Joobox PrestaShop Cloud or another paid service explicitly agreed with JOO INTERNET MEDIA LTD.').'</p>'
             .'<p><a class="btn btn-primary" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.$this->l('Get Joobox support').'</a> '
@@ -523,7 +523,7 @@ class Jooim_dbcleaner extends Module
 
         $refreshUrl = AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules').'&jooim_refresh_update=1';
 
-        $html = '<div class="panel jooim-dbcleaner-update-panel">';
+        $html = '<div class="panel jooim-updates jooim-dbcleaner-update-panel">';
         $html .= '<h3><i class="icon-refresh"></i> '.$this->l('Update check').'</h3>';
         $html .= '<p><strong>'.$this->l('Current module version').':</strong> '.htmlspecialchars($this->version, ENT_QUOTES, 'UTF-8').'</p>';
         $html .= '<p><strong>'.$this->l('Latest version on GitHub').':</strong> '.htmlspecialchars($latest, ENT_QUOTES, 'UTF-8').'</p>';
@@ -978,7 +978,7 @@ class Jooim_dbcleaner extends Module
             ),
         );
 
-        return $helper->generateForm(array($fields));
+        return $helper->generateForm(array(JooimPortfolioAdmin::fields($fields, $helper->fields_value)));
     }
 
     protected function renderCronPanel()

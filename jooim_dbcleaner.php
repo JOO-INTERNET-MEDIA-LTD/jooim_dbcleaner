@@ -39,7 +39,7 @@ class Jooim_dbcleaner extends Module
 
         parent::__construct();
 
-        $this->displayName = $this->l('Prestashop DB Cleaner');
+        $this->displayName = $this->l('Database Cleaner & Optimization');
         $this->description = $this->l('Safely cleans old visitor statistics and unreferenced anonymous guests in bounded batches and reports database usage.');
         $this->confirmUninstall = $this->l('Are you sure? Cleanup logs and aggregated statistics created by this module will be removed.');
     }
@@ -238,6 +238,15 @@ class Jooim_dbcleaner extends Module
 
     public function getContent()
     {
+        require_once __DIR__.'/classes/PortfolioAdmin.php';
+        if (!JooimPortfolioAdmin::authorize($this, array('submitJooimDbcleaner','submitJooimDbcleanerRegenerateToken','submitJooimDbcleanerRunNow'), $this->context)) {
+            return $this->displayError($this->l('Invalid request.'));
+        }
+        return JooimPortfolioAdmin::render($this, $this->portfolioContent(), $this->context, isset($this->_path) ? $this->_path : '/modules/'.$this->name.'/');
+    }
+
+    private function portfolioContent()
+    {
         $this->synchronizeFooterAttributionHook();
         try {
             if (!$this->ensureDatabaseSchema()) {
@@ -275,7 +284,7 @@ class Jooim_dbcleaner extends Module
         return $output
             .$this->renderJooboxSupportPanel()
             .$this->renderUpdateCheckPanel()
-            .$this->renderTabs()
+            .'<!--jooim-settings-->'.$this->renderTabs()
             .$this->renderActiveTabContent();
     }
 
@@ -471,14 +480,14 @@ class Jooim_dbcleaner extends Module
 
     protected function renderJooboxSupportPanel()
     {
-        $url = $this->getJooboxSupportUrl();
+        $url = 'https://support.joobox.eu';
         $github = 'https://github.com/JOO-INTERNET-MEDIA-LTD/jooim_dbcleaner';
 
-        return '<div class="panel jooim-dbcleaner-support-panel">'
+        return '<div class="panel jooim-support jooim-dbcleaner-support-panel">'
             .'<h3><i class="icon-life-ring"></i> '.$this->l('Joobox support for this module').'</h3>'
             .'<p>'.$this->l('This free GitHub module is provided without individual technical support. Installation, configuration, production testing, updates and troubleshooting are available for customers using Joobox PrestaShop Cloud or another paid service explicitly agreed with JOO INTERNET MEDIA LTD.').'</p>'
-            .'<p><a class="btn btn-primary" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">'.$this->l('Get Joobox support').'</a> '
-            .'<a class="btn btn-default" href="'.htmlspecialchars($github, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">GitHub</a></p>'
+            .'<p><a class="btn btn-primary" href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.$this->l('Get Joobox support').'</a> '
+            .'<a class="btn btn-default" href="'.htmlspecialchars($github, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">GitHub</a></p>'
             .'</div>';
     }
 
@@ -514,7 +523,7 @@ class Jooim_dbcleaner extends Module
 
         $refreshUrl = AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules').'&jooim_refresh_update=1';
 
-        $html = '<div class="panel jooim-dbcleaner-update-panel">';
+        $html = '<div class="panel jooim-updates jooim-dbcleaner-update-panel">';
         $html .= '<h3><i class="icon-refresh"></i> '.$this->l('Update check').'</h3>';
         $html .= '<p><strong>'.$this->l('Current module version').':</strong> '.htmlspecialchars($this->version, ENT_QUOTES, 'UTF-8').'</p>';
         $html .= '<p><strong>'.$this->l('Latest version on GitHub').':</strong> '.htmlspecialchars($latest, ENT_QUOTES, 'UTF-8').'</p>';
@@ -523,7 +532,7 @@ class Jooim_dbcleaner extends Module
         }
         $html .= '<div class="'.$statusClass.'"><strong>'.$this->l('Update status').':</strong> '.htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8').'</div>';
         $html .= '<p>'.$this->l('For PrestaShop installation, do not use GitHub automatic "Source code ZIP". Use only the installation ZIP file from the release assets.').'</p>';
-        $html .= '<p><a class="btn btn-primary" href="'.htmlspecialchars($this->getGithubReleasesUrl(), ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener">'.$this->l('Open GitHub Releases').'</a> ';
+        $html .= '<p><a class="btn btn-primary" href="'.htmlspecialchars($this->getGithubReleasesUrl(), ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.$this->l('Open GitHub Releases').'</a> ';
         $html .= '<a class="btn btn-default" href="'.htmlspecialchars($refreshUrl, ENT_QUOTES, 'UTF-8').'">'.$this->l('Refresh update status').'</a></p>';
         $html .= '</div>';
 
@@ -969,7 +978,7 @@ class Jooim_dbcleaner extends Module
             ),
         );
 
-        return $helper->generateForm(array($fields));
+        return $helper->generateForm(array(JooimPortfolioAdmin::fields($fields, $helper->fields_value)));
     }
 
     protected function renderCronPanel()

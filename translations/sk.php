@@ -2,7 +2,7 @@
 global $_MODULE;
 $_MODULE = array();
 
-$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_63bfc6a8c34e0800865af5afb8a479e9'] = 'Čistenie a optimalizácia databázy';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_c493764a2f14d73975c320fa665e6c11'] = 'Bezpečne čistí staré databázové štatistiky PrestaShopu, vyprázdňuje vybrané cache tabuľky a ukladá súhrnné prehľady zdrojov návštevnosti.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8b9c8f8a2fd1dd92fc90d919a69e5d4c'] = 'Ste si istý? Záznamy o čistení a súhrnné štatistiky vytvorené týmto modulom budú odstránené.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_f38f5974cdc23279ffe6d203641a8bdf'] = 'Nastavenia boli uložené.';
@@ -78,7 +78,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_d7e637a6e9ff116de2fa89551
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_2c424ca1398cffa9a0715608d94118b4'] = 'Zobrazenia stránok';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_77c6043b7cae5b819b82b3f3eda4c2d4'] = 'Zatiaľ nie sú dostupné žiadne agregované dáta návštevnosti.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_0f46abf9fbbbb3f98d06a8c931733514'] = 'Prestashop modul od';
-$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_63bfc6a8c34e0800865af5afb8a479e9'] = 'Čistenie a optimalizácia databázy';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_c493764a2f14d73975c320fa665e6c11'] = 'Bezpečne čistí staré databázové štatistiky PrestaShopu, vyprázdňuje vybrané cache tabuľky a ukladá súhrnné prehľady zdrojov návštevnosti.';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8b9c8f8a2fd1dd92fc90d919a69e5d4c'] = 'Ste si istý? Záznamy o čistení a súhrnné štatistiky vytvorené týmto modulom budú odstránené.';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_f38f5974cdc23279ffe6d203641a8bdf'] = 'Nastavenia boli uložené.';
@@ -153,7 +153,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_eae639a70006feff484a39
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_d7e637a6e9ff116de2fa89551240a94d'] = 'Návštevy';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_2c424ca1398cffa9a0715608d94118b4'] = 'Zobrazenia stránok';
 $_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_77c6043b7cae5b819b82b3f3eda4c2d4'] = 'Zatiaľ nie sú dostupné žiadne agregované dáta návštevnosti.';
-$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_0f46abf9fbbbb3f98d06a8c931733514'] = 'Prestashop modul od';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_ddc796b10ff22262407e143e3b59fdff'] = 'PrestaShop modul od';
 
 // GitHub update checker
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e2b8575e1fd2467e8d1ee9749a57513c'] = 'Update check';
@@ -219,3 +219,7 @@ $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_92028e0ea6641323deb78e16c
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_e825e64103a3aed1d72166aba952e2a7'] = 'Časový limit sa kontroluje medzi SQL operáciami. Práve bežiaci dotaz môže tento limit prekročiť.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_98f274bc0fb5ea5fabb3e3d98e1bac9b'] = 'Nižšie sa zobrazujú historické štatistiky uložené staršími verziami modulu. Tento modul nezbiera nové štatistiky.';
 $_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_a40eda1fb83914fda7aaa22981585cac'] = 'Pre túto inštaláciu nie sú dostupné historické štatistiky.';
+
+// Retain legacy source labels still used by existing forms.
+$_MODULE['<{jooim_dbcleaner}prestashop>jooim_dbcleaner_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
+$_MODULE['<{jooim_dbcleaner}prestashop>footer_attribution_8ef7519bf4e37f11222160d3a8429a47'] = 'Prestashop DB Cleaner';
